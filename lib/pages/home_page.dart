@@ -120,8 +120,9 @@ class _HomeContent extends StatelessWidget {
                   bottom: Radius.circular(20),
                 ),
                 child: CachedNetworkImage(
-                  imageUrl: 'https://picsum.photos/seed/home_hero/800/400',
+                  imageUrl:'https://images.pexels.com/photos/19123083/pexels-photo-19123083.jpeg',
                   fit: BoxFit.cover,
+                  alignment: Alignment.center,
                   placeholder: (context, url) => Container(
                     color: Colors.grey[300]!,
                     child: const Center(
@@ -151,7 +152,7 @@ class _HomeContent extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Our Impact',
+                    'Dampak Kami',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -164,15 +165,15 @@ class _HomeContent extends StatelessWidget {
                     children: [
                       Expanded(
                         child: StatCard(
-                          title: 'Total Donations',
-                          value: 'Rp 2.5B',
+                          title: 'Total Donasi',
+                          value: 'Rp 2.5M',
                           icon: Icons.monetization_on,
                         ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: StatCard(
-                          title: 'Beneficiaries',
+                          title: 'Penerima Manfaat',
                           value: '15,000+',
                           icon: Icons.people,
                         ),
@@ -180,7 +181,7 @@ class _HomeContent extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: StatCard(
-                          title: 'Campaigns',
+                          title: 'Kampanye',
                           value: '245',
                           icon: Icons.check_circle,
                         ),
@@ -200,7 +201,7 @@ class _HomeContent extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Featured Donation Campaigns',
+                    'Kampanye Donasi Pilihan',
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -215,11 +216,11 @@ class _HomeContent extends StatelessWidget {
                       itemCount: 3,
                       itemBuilder: (context, index) {
                         return _buildCampaignCard(
-                          title: index == 0 ? 'Clean Water Project' :
-                                index == 1 ? 'Education for All' : 'Emergency Relief',
-                          description: index == 0 ? 'Provide clean drinking water to villages in need' :
-                                index == 1 ? 'Fund education for children who cannot afford school' :
-                                'Provide immediate aid to families affected by floods',
+                          title: index == 0 ? 'Proyek Air Bersih' :
+                                index == 1 ? 'Pendidikan untuk Semua' : 'Bantuan Darurat',
+                          description: index == 0 ? 'Sediakan air minum bersih untuk desa-desa yang membutuhkan' :
+                                index == 1 ? 'Dana pendidikan untuk anak-anak yang tidak mampu bersekolah' :
+                                'Berikan bantuan langsung kepada keluarga yang terkena banjir',
                           currentAmount: index == 0 ? 32000000 :
                                 index == 1 ? 18000000 : 75000000,
                           targetAmount: index == 0 ? 50000000 :
@@ -243,7 +244,7 @@ class _HomeContent extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Volunteer Opportunities',
+                    'Peluang Relawan',
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -258,12 +259,12 @@ class _HomeContent extends StatelessWidget {
                       itemCount: 3,
                       itemBuilder: (context, index) {
                         return _buildVolunteerCard(
-                          title: index == 0 ? 'Beach Cleanup' :
-                                index == 1 ? 'Elderly Care' : 'Education Support',
+                          title: index == 0 ? 'Kebersihan Pantai' :
+                                index == 1 ? 'Perawatan Lansia' : 'Dukungan Pendidikan',
                           location: index == 0 ? 'Bali' :
                                 index == 1 ? 'Jakarta' : 'Yogyakarta',
-                          date: index == 0 ? 'Dec 20, 2025' :
-                                index == 1 ? 'Dec 15, 2025' : 'Jan 5, 2026',
+                          date: index == 0 ? '20 Des 2025' :
+                                index == 1 ? '15 Des 2025' : '5 Jan 2026',
                           imageUrl: 'https://picsum.photos/seed/volunteer${index+1}/300/200',
                           context: context,
                         );
@@ -587,7 +588,7 @@ class _HeroContent extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Help Those In Need',
+                    'Bantu Mereka yang Membutuhkan',
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
@@ -596,7 +597,7 @@ class _HeroContent extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Your donation can make a difference in someone\'s life',
+                    'Donasi Anda bisa membuat perbedaan dalam hidup seseorang',
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.grey,
@@ -621,7 +622,7 @@ class _HeroContent extends StatelessWidget {
                         ),
                       ),
                       child: const Text(
-                        'Donate Now',
+                        'Donasi Sekarang',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -647,37 +648,37 @@ class _ListCampaignPageContent extends StatelessWidget {
     final campaigns = [
       Campaign(
         id: 1,
-        title: 'Clean Water for Rural Communities',
-        description: 'Provide clean drinking water to villages in need',
-        imageUrl: 'https://picsum.photos/seed/campaign1/600/400',
+        title: 'Air Bersih untuk Komunitas Pedesaan',
+        description: 'Sediakan air minum bersih untuk desa-desa yang membutuhkan',
+        imageUrl: 'https://source.unsplash.com/600x400/?water,community,help',
         targetAmount: 50000000,
         currentAmount: 32000000,
-        category: 'Health',
+        category: 'Kesehatan',
       ),
       Campaign(
         id: 2,
-        title: 'Education for Underprivileged Children',
-        description: 'Fund education for children who cannot afford school',
-        imageUrl: 'https://picsum.photos/seed/campaign2/600/400',
+        title: 'Pendidikan untuk Anak-anak Kurang Mampu',
+        description: 'Dana pendidikan untuk anak-anak yang tidak mampu bersekolah',
+        imageUrl: 'https://source.unsplash.com/600x400/?education,school,children',
         targetAmount: 30000000,
         currentAmount: 18000000,
-        category: 'Education',
+        category: 'Pendidikan',
       ),
       Campaign(
         id: 3,
-        title: 'Emergency Relief for Flood Victims',
-        description: 'Provide immediate aid to families affected by floods',
-        imageUrl: 'https://picsum.photos/seed/campaign3/600/400',
+        title: 'Bantuan Darurat untuk Korban Banjir',
+        description: 'Berikan bantuan langsung kepada keluarga yang terkena banjir',
+        imageUrl: 'https://source.unsplash.com/600x400/?flood,emergency,aid',
         targetAmount: 100000000,
         currentAmount: 75000000,
-        category: 'Emergency',
+        category: 'Darurat',
       ),
     ];
 
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Donation Campaigns',
+          'Kampanye Donasi',
           style: TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
@@ -723,36 +724,36 @@ class _VolunteerCampaignListPageContent extends StatelessWidget {
     final volunteerCampaigns = [
       VolunteerCampaign(
         id: 1,
-        title: 'Beach Cleanup Campaign',
-        description: 'Join us in cleaning up the coastline and protecting marine life',
-        imageUrl: 'https://picsum.photos/seed/volunteer1/600/400',
+        title: 'Kampanye Kebersihan Pantai',
+        description: 'Bergabunglah dengan kami membersihkan pesisir pantai dan melindungi kehidupan laut',
+        imageUrl: 'https://source.unsplash.com/600x400/?beach,cleanup,ocean',
         location: 'Bali, Indonesia',
         startDate: DateTime(2025, 12, 20),
         endDate: DateTime(2025, 12, 22),
         maxVolunteers: 100,
         registeredVolunteers: 65,
-        requirements: 'Willingness to work in the sun, comfortable with physical activity',
-        benefits: 'Lunch provided, certificate of participation',
+        requirements: 'Bersedia bekerja di bawah terik matahari, nyaman dengan aktivitas fisik',
+        benefits: 'Makan siang disediakan, sertifikat partisipasi',
       ),
       VolunteerCampaign(
         id: 2,
-        title: 'Elderly Care Support',
-        description: 'Spend time with elderly residents and provide companionship',
-        imageUrl: 'https://picsum.photos/seed/volunteer2/600/400',
+        title: 'Dukungan Perawatan Lansia',
+        description: 'Menghabiskan waktu dengan penduduk lanjut usia dan memberikan teman',
+        imageUrl: 'https://source.unsplash.com/600x400/?elderly,care,help',
         location: 'Jakarta, Indonesia',
         startDate: DateTime(2025, 12, 15),
         endDate: DateTime(2025, 12, 30),
         maxVolunteers: 50,
         registeredVolunteers: 32,
-        requirements: 'Good communication skills, patience, and empathy',
-        benefits: 'Experience in social work, reference letter',
+        requirements: 'Kemampuan komunikasi yang baik, kesabaran, dan empati',
+        benefits: 'Pengalaman dalam pekerjaan sosial, surat referensi',
       ),
     ];
 
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Volunteer Opportunities',
+          'Peluang Relawan',
           style: TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
@@ -888,7 +889,7 @@ class _ProfilePageContent extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'My Profile',
+          'Profil Saya',
           style: TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
@@ -925,7 +926,7 @@ class _ProfilePageContent extends StatelessWidget {
                   ),
                   child: ClipOval(
                     child: CachedNetworkImage(
-                      imageUrl: 'https://picsum.photos/seed/profile/200/200',
+                      imageUrl: 'https://source.unsplash.com/200x200/?avatar,profile',
                       fit: BoxFit.cover,
                       placeholder: (context, url) => Container(
                         color: Colors.grey[300]!,
@@ -946,7 +947,7 @@ class _ProfilePageContent extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 const Text(
-                  'John Doe',
+                  'Budi Santoso',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 22,
@@ -955,7 +956,7 @@ class _ProfilePageContent extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  'johndoe@example.com',
+                  'budi.santoso@example.com',
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 14,
@@ -970,46 +971,46 @@ class _ProfilePageContent extends StatelessWidget {
           // Profile options
           _buildProfileOption(
             icon: Icons.person,
-            title: 'Edit Profile',
+            title: 'Edit Profil',
             onTap: () {
               Navigator.pushNamed(context, '/edit_profile');
             },
           ),
           _buildProfileOption(
             icon: Icons.history,
-            title: 'Donation History',
+            title: 'Riwayat Donasi',
             onTap: () {
               Navigator.pushNamed(context, '/donation_history');
             },
           ),
           _buildProfileOption(
             icon: Icons.volunteer_activism,
-            title: 'My Volunteering',
+            title: 'Relawan Saya',
             onTap: () {
               // Navigate to volunteering history page
             },
           ),
           _buildProfileOption(
             icon: Icons.monetization_on,
-            title: 'Start a Campaign',
+            title: 'Mulai Kampanye',
             onTap: () {
               Navigator.pushNamed(context, '/start_campaign');
             },
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // About section
           _buildProfileOption(
             icon: Icons.info,
-            title: 'About Us',
+            title: 'Tentang Kami',
             onTap: () {
               Navigator.pushNamed(context, '/about_us');
             },
           ),
           _buildProfileOption(
             icon: Icons.help,
-            title: 'How It Works',
+            title: 'Cara Kerja',
             onTap: () {
               Navigator.pushNamed(context, '/how_it_works');
             },

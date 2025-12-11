@@ -11,7 +11,50 @@ class DonationFormPage extends StatefulWidget {
 class _DonationFormPageState extends State<DonationFormPage> {
   final TextEditingController _amountController = TextEditingController();
   String _selectedAmount = '';
-  
+
+  bool _isValidInput() {
+    // Check if either a preset amount is selected or custom amount is provided
+    if (_selectedAmount.isNotEmpty) {
+      // Extract numeric value from preset amount (remove "Rp " and commas)
+      String cleanAmount = _selectedAmount.replaceAll(RegExp(r'[Rp\s,]'), '');
+      double amount = double.tryParse(cleanAmount) ?? 0;
+      return amount > 0;
+    } else if (_amountController.text.isNotEmpty) {
+      // Validate custom amount
+      String cleanAmount = _amountController.text.replaceAll(RegExp(r'[Rp\s,]'), '');
+      double amount = double.tryParse(cleanAmount) ?? 0;
+      return amount > 1000; // Minimum donation amount
+    }
+    return false;
+  }
+
+  void _showSuccessNotification(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 3),
+        action: SnackBarAction(
+          label: 'OK',
+          onPressed: () {
+            // Navigate to payment success page when user taps OK
+            Navigator.pushNamed(context, '/payment_success');
+          },
+        ),
+      ),
+    );
+  }
+
+  void _showErrorNotification(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _amountController.dispose();
@@ -80,11 +123,30 @@ class _DonationFormPageState extends State<DonationFormPage> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _selectedAmount.isNotEmpty || _amountController.text.isNotEmpty
-                    ? () {
-                        Navigator.pushNamed(context, '/payment_success');
+                onPressed: () {
+                  if (_isValidInput()) {
+                    // Show success notification before navigating
+                    _showSuccessNotification(
+                      'Your payment is being processed successfully! Thank you for your donation.'
+                    );
+                  } else {
+                    // Show error for invalid input
+                    if (_selectedAmount.isEmpty && _amountController.text.isEmpty) {
+                      _showErrorNotification('Please select an amount or enter a custom amount.');
+                    } else if (_selectedAmount.isEmpty && _amountController.text.isNotEmpty) {
+                      // Custom amount validation
+                      String cleanAmount = _amountController.text.replaceAll(RegExp(r'[Rp\s,]'), '');
+                      double amount = double.tryParse(cleanAmount) ?? 0;
+                      if (amount <= 1000) {
+                        _showErrorNotification('Minimum donation amount is Rp 1,000. Please enter a higher amount.');
+                      } else {
+                        _showErrorNotification('Please enter a valid amount.');
                       }
-                    : null,
+                    } else {
+                      _showErrorNotification('Please select a valid amount option.');
+                    }
+                  }
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2972FF),
                   foregroundColor: Colors.white,

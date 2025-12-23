@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'models.dart';
+import 'models.dart'; // Model lama (tetap biarkan untuk halaman lain)
+import 'models/donation_campaign.dart'; // <--- 1. TAMBAHKAN IMPORT INI
 
 // Pages
 import 'pages/home_page.dart';
@@ -38,10 +39,16 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => const HomePage(),
         '/list_campaign': (context) => const ListCampaignPage(),
+        
+        // --- 2. PERBAIKAN DI BAGIAN INI ---
         '/campaign_detail': (context) {
-          final campaign = ModalRoute.of(context)?.settings.arguments as Campaign?;
+          // Ganti 'Campaign?' menjadi 'DonationCampaign'
+          // Kita memaksa args dibaca sebagai DonationCampaign karena dikirim dari Home
+          final campaign = ModalRoute.of(context)!.settings.arguments as DonationCampaign;
           return CampaignDetailPage(campaign: campaign);
         },
+        // ----------------------------------
+
         '/donation_form': (context) => const DonationFormPage(),
         '/payment_success': (context) => const PaymentSuccessPage(),
         '/about_us': (context) => const AboutUsPage(),

@@ -2,6 +2,17 @@ import 'package:flutter/material.dart';
 import '../models.dart';
 import '../widgets/custom_widgets.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'campaign_detail_page.dart'; 
+import '../models/donation_campaign.dart'; 
+import 'list_campaign_page.dart';
+import 'volunteer_campaign_list_page.dart';
+import 'profile_page.dart';
+
+// Palet Warna DonGiv
+const Color kPrimaryColor = Color(0xFF2972FF);
+const Color kBackgroundColor = Color(0xFFF5F7FA); 
+const Color kTextPrimary = Color(0xFF1A1A1A);
+const Color kTextSecondary = Color(0xFF888888);
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -11,706 +22,493 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  late PageController _pageController;
-  int _currentPage = 0;
   int _currentIndex = 0;
-
-  final List<Widget> _pages = [
-    const _HomeContent(),
-    const _ListCampaignPageContent(),
-    const _VolunteerCampaignListPageContent(),
-    const _ProfilePageContent(),
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _pageController = PageController(initialPage: 0);
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
 
   void _onTabTapped(int index) {
     setState(() {
       _currentIndex = index;
     });
-    _pageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final List<Widget> _pages = [
+      HomeContentModern(onGoToDonation: () => _onTabTapped(1)), 
+            const ListCampaignPage(), 
+            const VolunteerCampaignListPage(), 
+            const ProfilePage(), 
+    ];
+
     return Scaffold(
-      body: PageView(
-        controller: _pageController,
-        onPageChanged: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
+      backgroundColor: kBackgroundColor,
+      body: IndexedStack(
+        index: _currentIndex,
         children: _pages,
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.monetization_on_outlined),
-            label: 'Donate',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.handshake_outlined),
-            label: 'Volunteer',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
-        currentIndex: _currentIndex,
-        selectedItemColor: const Color(0xFF2972FF),
-        unselectedItemColor: Colors.grey,
-        onTap: _onTabTapped,
-        backgroundColor: Colors.white,
-        elevation: 10,
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 20,
+              offset: const Offset(0, -5)
+            ),
+          ],
+        ),
+        child: BottomNavigationBar(
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: Colors.white,
+          selectedItemColor: kPrimaryColor,
+          unselectedItemColor: Colors.grey[400],
+          currentIndex: _currentIndex,
+          onTap: _onTabTapped,
+          elevation: 0,
+          showSelectedLabels: true,
+          showUnselectedLabels: true,
+          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
+            BottomNavigationBarItem(icon: Icon(Icons.favorite_rounded), label: 'Donasi'),
+            BottomNavigationBarItem(icon: Icon(Icons.volunteer_activism_rounded), label: 'Relawan'),
+            BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Akun'),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _HomeContent extends StatelessWidget {
-  const _HomeContent({Key? key}) : super(key: key);
+// --- KONTEN HOME ---
+class HomeContentModern extends StatefulWidget {
+  final VoidCallback onGoToDonation;
+
+  const HomeContentModern({Key? key, required this.onGoToDonation}) : super(key: key);
+
+  @override
+  State<HomeContentModern> createState() => _HomeContentModernState();
+}
+
+class _HomeContentModernState extends State<HomeContentModern> {
+  bool _isLoading = true;
+  List<DonationCampaign> _allCampaigns = []; 
+  List<DonationCampaign> _displayCampaigns = []; 
+  String _selectedCategory = "Semua"; 
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCampaigns();
+  }
+
+  Future<void> _fetchCampaigns() async {
+    await Future.delayed(const Duration(seconds: 2));
+    if (mounted) {
+      final data = [
+        DonationCampaign(
+          id: 1,
+          title: 'Wakaf Air Bersih Desa',
+          description: 'Bantu desa kekeringan di pelosok negeri.',
+          imageUrl: 'https://images.pexels.com/photos/19123083/pexels-photo-19123083.jpeg',
+          targetAmount: 50000000,
+          currentAmount: 35000000,
+          category: 'Infrastruktur',
+        ),
+        DonationCampaign(
+          id: 2,
+          title: 'Beasiswa Anak Yatim',
+          description: 'Pendidikan layak untuk anak kurang mampu.',
+          imageUrl: 'https://images.pexels.com/photos/1739842/pexels-photo-1739842.jpeg',
+          targetAmount: 20000000,
+          currentAmount: 8500000,
+          category: 'Pendidikan',
+        ),
+        DonationCampaign(
+          id: 3,
+          title: 'Operasi Jantung Bayi',
+          description: 'Bantuan medis darurat untuk balita.',
+          imageUrl: 'https://images.pexels.com/photos/263194/pexels-photo-263194.jpeg',
+          targetAmount: 100000000,
+          currentAmount: 92000000,
+          category: 'Medis',
+        ),
+      ];
+
+      setState(() {
+        _allCampaigns = data;
+        _displayCampaigns = data; 
+        _isLoading = false;
+      });
+    }
+  }
+
+  // Fungsi Filter Logika (Client Side)
+  void _filterCampaigns(String category) {
+    setState(() {
+      _selectedCategory = category;
+      if (category == "Semua") {
+        _displayCampaigns = _allCampaigns;
+      } else {
+        _displayCampaigns = _allCampaigns
+            .where((item) => item.category.toLowerCase() == category.toLowerCase())
+            .toList();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: SingleChildScrollView(
+      child: CustomScrollView(
         physics: const BouncingScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Hero Section with Background Image
-            Container(
-              width: double.infinity,
-              height: 250,
-              decoration: BoxDecoration(
-                borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(20),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(20),
-                ),
-                child: CachedNetworkImage(
-                  imageUrl:'https://images.pexels.com/photos/19123083/pexels-photo-19123083.jpeg',
-                  fit: BoxFit.cover,
-                  alignment: Alignment.center,
-                  placeholder: (context, url) => Container(
-                    color: Colors.grey[300]!,
-                    child: const Center(
-                      child: CircularProgressIndicator(),
-                    ),
-                  ),
-                  errorWidget: (context, url, error) => Container(
-                    color: Colors.grey[300]!,
-                    child: const Icon(
-                      Icons.broken_image,
-                      size: 60,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Overlay content on hero section
-            const _HeroContent(),
-
-            // Stats Section
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        slivers: [
+          // 1. HEADER DONGIV 
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+            sliver: SliverToBoxAdapter(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Dampak Kami',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      Expanded(
-                        child: StatCard(
-                          title: 'Total Donasi',
-                          value: 'Rp 2.5M',
-                          icon: Icons.monetization_on,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: StatCard(
-                          title: 'Penerima Manfaat',
-                          value: '15,000+',
-                          icon: Icons.people,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: StatCard(
-                          title: 'Kampanye',
-                          value: '245',
-                          icon: Icons.check_circle,
-                        ),
-                      ),
+                    children: const [
+                      Text("Don", style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: kPrimaryColor)),
+                      Text("Giv", style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: kTextPrimary)),
                     ],
                   ),
+                  // Notifikasi Icon
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.grey.shade200),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
+                      ],
+                    ),
+                    child: const Icon(Icons.notifications_none_rounded, color: kTextPrimary, size: 24),
+                  )
                 ],
               ),
             ),
+          ),
 
-            const SizedBox(height: 20),
+          // 2. SEARCH BAR & FUNCTIONAL CATEGORIES
+          SliverToBoxAdapter(
+            child: Column(
+              children: [
+                // Search Bar
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 15, offset: const Offset(0, 5)),
+                      ],
+                    ),
+                    child: const TextField(
+                      decoration: InputDecoration(
+                        hintText: "Cari program kebaikan...",
+                        hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
+                        prefixIcon: Icon(Icons.search_rounded, color: Colors.grey),
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(vertical: 16),
+                      ),
+                    ),
+                  ),
+                ),
+                
+                // Categories (Horizontal Scroll & Fungsional)
+                const SizedBox(height: 20),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      _buildCategoryChip(Icons.grid_view_rounded, "Semua"),
+                      _buildCategoryChip(Icons.medical_services_outlined, "Medis"),
+                      _buildCategoryChip(Icons.school_outlined, "Pendidikan"),
+                      _buildCategoryChip(Icons.water_drop_outlined, "Infrastruktur"),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
 
-            // Featured Donation Campaigns
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          // 3. HERO BANNER
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: _buildHeroBanner(),
+            ),
+          ),
+
+          // 4. SECTION HEADER
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 15),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Kampanye Donasi Pilihan',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(  // Add container to properly constrain the height
-                    height: 220,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: 3,
-                      itemBuilder: (context, index) {
-                        return _buildCampaignCard(
-                          title: index == 0 ? 'Proyek Air Bersih' :
-                                index == 1 ? 'Pendidikan untuk Semua' : 'Bantuan Darurat',
-                          description: index == 0 ? 'Sediakan air minum bersih untuk desa-desa yang membutuhkan' :
-                                index == 1 ? 'Dana pendidikan untuk anak-anak yang tidak mampu bersekolah' :
-                                'Berikan bantuan langsung kepada keluarga yang terkena banjir',
-                          currentAmount: index == 0 ? 32000000 :
-                                index == 1 ? 18000000 : 75000000,
-                          targetAmount: index == 0 ? 50000000 :
-                                index == 1 ? 30000000 : 100000000,
-                          imageUrl: 'https://picsum.photos/seed/campaign${index+1}/300/200',
-                          context: context,
-                        );
-                      },
-                    ),
+                  const Text('Mendesak & Pilihan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kTextPrimary)),
+                  GestureDetector(
+                    onTap: widget.onGoToDonation,
+                    child: const Text('Lihat Semua', style: TextStyle(fontSize: 14, color: kPrimaryColor, fontWeight: FontWeight.w600))
                   ),
                 ],
               ),
             ),
+          ),
 
-            const SizedBox(height: 20),
+          // 5. CAMPAIGN LIST (YANG SUDAH DIFILTER)
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: 295, 
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _displayCampaigns.isEmpty
+                      ? _buildEmptyState() // Tampilan jika filter kosong
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: _displayCampaigns.length,
+                          itemBuilder: (context, index) => _buildModernCampaignCard(_displayCampaigns[index], context),
+                        ),
+            ),
+          ),
 
-            // Volunteer Opportunities
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Peluang Relawan',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(  // Add container to properly constrain the height
-                    height: 120,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: 3,
-                      itemBuilder: (context, index) {
-                        return _buildVolunteerCard(
-                          title: index == 0 ? 'Kebersihan Pantai' :
-                                index == 1 ? 'Perawatan Lansia' : 'Dukungan Pendidikan',
-                          location: index == 0 ? 'Bali' :
-                                index == 1 ? 'Jakarta' : 'Yogyakarta',
-                          date: index == 0 ? '20 Des 2025' :
-                                index == 1 ? '15 Des 2025' : '5 Jan 2026',
-                          imageUrl: 'https://picsum.photos/seed/volunteer${index+1}/300/200',
-                          context: context,
-                        );
-                      },
-                    ),
-                  ),
-                ],
+          const SliverToBoxAdapter(child: SizedBox(height: 100)),
+        ],
+      ),
+    );
+  }
+
+  // --- WIDGETS PENDUKUNG ---
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.search_off_rounded, size: 48, color: Colors.grey[300]),
+          const SizedBox(height: 8),
+          Text("Belum ada kampanye di kategori ini", style: TextStyle(color: Colors.grey[500])),
+        ],
+      ),
+    );
+  }
+
+  // Widget Chip yang Bisa Diklik
+  Widget _buildCategoryChip(IconData icon, String label) {
+    bool isActive = _selectedCategory == label;
+    return GestureDetector(
+      onTap: () => _filterCampaigns(label), // Panggil fungsi filter saat diklik
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.only(right: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isActive ? kPrimaryColor : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: isActive ? null : Border.all(color: Colors.grey[200]!),
+          boxShadow: isActive 
+            ? [BoxShadow(color: kPrimaryColor.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))]
+            : null,
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: isActive ? Colors.white : kTextSecondary),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: isActive ? Colors.white : kTextSecondary,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
               ),
             ),
-
-            const SizedBox(height: 20),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCampaignCard({
-    required String title,
-    required String description,
-    required double currentAmount,
-    required double targetAmount,
-    required String imageUrl,
-    required BuildContext context,
-  }) {
-    double progress = (currentAmount / targetAmount) * 100;
-
-    String formatCurrency(double amount) {
-      if (amount >= 1000000) {
-        return 'Rp ${(amount / 1000000).toStringAsFixed(1)}M';
-      } else if (amount >= 1000) {
-        return 'Rp ${(amount / 1000).toStringAsFixed(0)}K';
-      }
-      return 'Rp ${amount.toInt().toString()}';
-    }
-
+  Widget _buildHeroBanner() {
     return Container(
-      width: 280,
-      margin: const EdgeInsets.only(right: 12),
+      width: double.infinity,
+      height: 180,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
+        image: const DecorationImage(
+          image: CachedNetworkImageProvider('https://images.pexels.com/photos/6646917/pexels-photo-6646917.jpeg'),
+          fit: BoxFit.cover,
+        ),
         boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 2,
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
+          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 10)),
         ],
       ),
-      child: InkWell(
-        onTap: () {
-          Navigator.pushNamed(context, '/list_campaign');
-        },
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          height: 200,  // Fixed height to prevent overflow
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                child: CachedNetworkImage(
-                  imageUrl: imageUrl,
-                  height: 100,  // Reduced image height
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => Container(
-                    height: 100,
-                    width: double.infinity,
-                    color: Colors.grey[300]!,
-                    child: const Center(
-                      child: CircularProgressIndicator(),
-                    ),
-                  ),
-                  errorWidget: (context, url, error) => Container(
-                    height: 100,
-                    width: double.infinity,
-                    color: Colors.grey[300]!,
-                    child: const Icon(
-                      Icons.broken_image,
-                      size: 30,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Title and description section
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            description,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey[600],
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                      // Progress section
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          LinearProgressIndicator(
-                            value: progress / 100,
-                            minHeight: 5,
-                            backgroundColor: Colors.grey[200],
-                            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF2972FF)),
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                formatCurrency(currentAmount),
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF2972FF),
-                                ),
-                              ),
-                              Text(
-                                formatCurrency(targetAmount),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildVolunteerCard({
-    required String title,
-    required String location,
-    required String date,
-    required String imageUrl,
-    required BuildContext context,
-  }) {
-    return Container(
-      width: 280,
-      margin: const EdgeInsets.only(right: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 2,
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: InkWell(
-        onTap: () {
-          Navigator.pushNamed(context, '/volunteer_campaigns');
-        },
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          height: 120,  // Fixed height to match the container in the parent
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.horizontal(
-                  left: Radius.circular(20),
-                ),
-                child: CachedNetworkImage(
-                  imageUrl: imageUrl,
-                  width: 100,
-                  height: double.infinity,  // Use double.infinity to fill the container height
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => Container(
-                    width: 100,
-                    height: double.infinity,
-                    color: Colors.grey[300]!,
-                    child: const Center(
-                      child: CircularProgressIndicator(),
-                    ),
-                  ),
-                  errorWidget: (context, url, error) => Container(
-                    width: 100,
-                    height: double.infinity,
-                    color: Colors.grey[300]!,
-                    child: const Icon(
-                      Icons.broken_image,
-                      size: 30,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.location_on,
-                            size: 12,
-                            color: Colors.grey[600],
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              location,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey[600],
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.date_range,
-                            size: 12,
-                            color: Colors.grey[600],
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            date,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _HeroContent extends StatelessWidget {
-  const _HeroContent({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
           Container(
-            width: double.infinity,
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+              borderRadius: BorderRadius.circular(24),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent, 
+                    borderRadius: BorderRadius.circular(8)
+                  ),
+                  child: const Text('URGENT', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Bantu Korban Gempa\nCianjur Bangkit', 
+                  style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold, height: 1.2)
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Container(height: 3, width: 40, color: kPrimaryColor),
+                    const SizedBox(width: 8),
+                    const Text('Donasi Sekarang', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
+                  ],
+                )
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModernCampaignCard(DonationCampaign data, BuildContext context) {
+    return Container(
+      width: 260,
+      margin: const EdgeInsets.only(right: 16, bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 15, offset: const Offset(0, 8)),
+        ],
+      ),
+      child: InkWell(
+        onTap: () {
+          Navigator.pushNamed(
+            context,
+            '/campaign_detail',
+            arguments: data,
+          );
+        },
+        borderRadius: BorderRadius.circular(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                  child: CachedNetworkImage(
+                    imageUrl: data.imageUrl,
+                    height: 140,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorWidget: (context, url, error) => Container(color: Colors.grey[200]),
+                  ),
+                ),
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      data.category,
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: kPrimaryColor),
+                    ),
+                  ),
                 ),
               ],
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
+            Padding(
+              padding: const EdgeInsets.all(14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Bantu Mereka yang Membutuhkan',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
+                  Text(
+                    data.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: kTextPrimary),
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Donasi Anda bisa membuat perbedaan dalam hidup seseorang',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pushNamed(context, '/list_campaign');
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2972FF),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 16,
-                          horizontal: 24,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.verified_user, size: 12, color: Colors.grey),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Yayasan DonGiv Peduli', 
+                        style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                       ),
-                      child: const Text(
-                        'Donasi Sekarang',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: LinearProgressIndicator(
+                      value: data.progress,
+                      minHeight: 6,
+                      backgroundColor: Colors.grey[100],
+                      valueColor: const AlwaysStoppedAnimation<Color>(kPrimaryColor),
                     ),
                   ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Terkumpul', style: TextStyle(fontSize: 10, color: kTextSecondary)),
+                          Text(
+                            'Rp ${(data.currentAmount/1000000).toStringAsFixed(1)}jt', 
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: kPrimaryColor)
+                          ),
+                        ],
+                      ),
+                       Text(
+                        '${(data.progress*100).toInt()}%', 
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: kTextPrimary)
+                      ),
+                    ],
+                  )
                 ],
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ListCampaignPageContent extends StatelessWidget {
-  const _ListCampaignPageContent({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    final campaigns = [
-      Campaign(
-        id: 1,
-        title: 'Air Bersih untuk Komunitas Pedesaan',
-        description: 'Sediakan air minum bersih untuk desa-desa yang membutuhkan',
-        imageUrl: 'https://source.unsplash.com/600x400/?water,community,help',
-        targetAmount: 50000000,
-        currentAmount: 32000000,
-        category: 'Kesehatan',
-      ),
-      Campaign(
-        id: 2,
-        title: 'Pendidikan untuk Anak-anak Kurang Mampu',
-        description: 'Dana pendidikan untuk anak-anak yang tidak mampu bersekolah',
-        imageUrl: 'https://source.unsplash.com/600x400/?education,school,children',
-        targetAmount: 30000000,
-        currentAmount: 18000000,
-        category: 'Pendidikan',
-      ),
-      Campaign(
-        id: 3,
-        title: 'Bantuan Darurat untuk Korban Banjir',
-        description: 'Berikan bantuan langsung kepada keluarga yang terkena banjir',
-        imageUrl: 'https://source.unsplash.com/600x400/?flood,emergency,aid',
-        targetAmount: 100000000,
-        currentAmount: 75000000,
-        category: 'Darurat',
-      ),
-    ];
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Kampanye Donasi',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-          ),
+            )
+          ],
         ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: campaigns.length,
-        itemBuilder: (context, index) {
-          final campaign = campaigns[index];
-          return CampaignCard(
-            imageUrl: campaign.imageUrl,
-            title: campaign.title,
-            description: campaign.description,
-            targetAmount: campaign.targetAmount,
-            currentAmount: campaign.currentAmount,
-            onTap: () {
-              Navigator.pushNamed(
-                context,
-                '/campaign_detail',
-                arguments: campaign,
-              );
-            },
-          );
-        },
       ),
     );
   }

@@ -1,115 +1,76 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
-import '../services/api_service.dart';
 import '../models/donation_transaction.dart';
+import 'api_service.dart';
 
 class PaymentService {
-  // Fungsi untuk membuat pembayaran donasi (tanpa Midtrans)
   static Future<DonationTransaction> createDonationPayment({
     required int campaignId,
     required double amount,
     required String donorName,
     required String donorEmail,
     String? donorPhone,
-    String paymentMethod = 'bank_transfer', // Tambahkan parameter paymentMethod
+    String paymentMethod = 'bank_transfer',
+    String? selectedBank,
+    String? selectedEwallet,
     bool anonymous = false,
     required String? token,
   }) async {
     if (token == null || token.isEmpty) {
-      throw Exception('Authentication token is required to create donation payment');
+      throw Exception('Anda harus login terlebih dahulu');
     }
-
+    if ((paymentMethod == 'bank_transfer' && selectedBank == null) ||
+        (paymentMethod == 'e_wallet' && selectedEwallet == null)) {
+      throw ArgumentError('Pilih metode pembayaran terlebih dahulu');
+    }
+    final response = await ApiService.post(
+        'v1/donations',
+        {
+          'amount': amount,
+          'donor_name': donorName,
+          'donor_email': donorEmail,
+          'campaign_id': campaignId,
+          'payment_method': paymentMethod,
+          'anonymous': anonymous,
+          if (donorPhone != null && donorPhone.isNotEmpty)
+            'donor_phone': donorPhone,
+          if (paymentMethod == 'bank_transfer') 'selected_bank': selectedBank,
+          if (paymentMethod == 'e_wallet') 'selected_ewallet': selectedEwallet,
+          if (paymentMethod == 'qris') 'selected_qris': 'default_qris',
+        },
+        token: token);
+    final dynamic body;
     try {
-      print('Making request to: v1/donations');
-
-      // Siapkan data yang akan dikirim
-      Map<String, dynamic> requestData = {
-        'amount': amount,
-        'donor_name': donorName,
-        'donor_email': donorEmail,
-        'campaign_id': campaignId,
-        'payment_method': paymentMethod, // Gunakan paymentMethod yang diberikan
-        'anonymous': anonymous,
-      };
-
-      // Tambahkan field donor_phone jika tersedia
-      if (donorPhone != null) {
-        requestData['donor_phone'] = donorPhone;
-      }
-
-      // Tambahkan field yang diperlukan berdasarkan metode pembayaran
-      if (paymentMethod == 'bank_transfer') {
-        requestData['selected_bank'] = 'BCA'; // Gunakan bank default
-      } else if (paymentMethod == 'e_wallet') {
-        requestData['selected_ewallet'] = 'OVO'; // Gunakan e-wallet default
-      } else if (paymentMethod == 'qris') {
-        requestData['selected_qris'] = 'default_qris'; // Gunakan QRIS default
-      }
-
-      final response = await ApiService.post('v1/donations', requestData, token: token);
-
-      print('Create donation payment response status: ${response.statusCode}');
-      if (response.statusCode == 200) {
-        print('Create donation payment response body: ${response.body}');
-        final jsonData = json.decode(response.body);
-        return DonationTransaction.fromJson(jsonData['data']);
-      } else {
-        throw Exception('Failed to create donation payment: ${response.statusCode} - ${response.body}');
-      }
-    } catch (e) {
-      print('Error in createDonationPayment: $e');
-      // Jika terjadi error koneksi, kembalikan data dummy untuk sementara
-      print('Returning dummy transaction data for testing purposes');
-      return _createDummyTransaction(campaignId, amount, donorName, donorEmail, paymentMethod);
+      body = jsonDecode(response.body);
+    } catch (_) {
+      throw Exception(
+          'Respons pembayaran tidak valid. Periksa riwayat donasi sebelum mencoba kembali.');
     }
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      final errors = body is Map ? body['errors'] : null;
+      throw Exception(errors is Map
+          ? errors.values.join('\n')
+          : body is Map
+              ? body['message'] ?? 'Gagal membuat pembayaran'
+              : 'Gagal membuat pembayaran');
+    }
+    final transaction = DonationTransaction.fromJson(body['data']);
+    if (transaction.orderId.isEmpty) {
+      throw Exception(
+          'Nomor transaksi tidak tersedia. Periksa riwayat donasi sebelum mencoba kembali.');
+    }
+    return transaction;
   }
 
-  // Fungsi untuk membuat data transaksi dummy untuk keperluan testing
-  static DonationTransaction _createDummyTransaction(int campaignId, double amount, String donorName, String donorEmail, [String paymentMethod = 'bank_transfer']) {
-    return DonationTransaction(
-      orderId: 'TEST-${DateTime.now().millisecondsSinceEpoch}',
-      amount: amount,
-      donorName: donorName,
-      donorEmail: donorEmail,
-      status: 'AWAITING_TRANSFER', // Ganti ke status yang sesuai dengan server
-      paymentMethod: paymentMethod, // Gunakan format yang sesuai dengan server
-      campaignId: campaignId,
-      statusLabel: 'Pending',
-      donorPhone: null,
-      userId: null,
-      paymentMethodData: null,
-      transferDeadline: null,
-      bankAccountName: null,
-      bankAccountNumber: null,
-      bankName: null,
-      proofOfTransferPath: null,
-      transferCompletedAt: null,
-      verifiedAt: null,
-      campaign: null,
-    );
-  }
-
-  // Fungsi untuk mengecek status pembayaran
-  static Future<DonationTransaction> checkPaymentStatus({
-    required String orderId,
-    required String? token,
-  }) async {
+  static Future<DonationTransaction> checkPaymentStatus(
+      {required String orderId, required String? token}) async {
     if (token == null || token.isEmpty) {
-      throw Exception('Authentication token is required to check payment status');
+      throw Exception('Anda harus login terlebih dahulu');
     }
-
-    try {
-      final response = await ApiService.get('v1/donations/$orderId', token: token);
-
-      if (response.statusCode == 200) {
-        final jsonData = json.decode(response.body);
-        return DonationTransaction.fromJson(jsonData['data']);
-      } else {
-        throw Exception('Failed to check payment status: ${response.statusCode} - ${response.body}');
-      }
-    } catch (e) {
-      print('Error in checkPaymentStatus: $e');
-      throw Exception('Error checking payment status: $e');
+    final response =
+        await ApiService.get('v1/donations/$orderId', token: token);
+    if (response.statusCode != 200) {
+      throw Exception('Gagal memuat status pembayaran');
     }
+    return DonationTransaction.fromJson(jsonDecode(response.body)['data']);
   }
 }

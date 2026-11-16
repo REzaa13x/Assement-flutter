@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">10.0.2.2</domain>  <!-- For Android emulator -->
+        <domain includeSubdomains="true">localhost</domain>  <!-- For local connections -->
+        <domain includeSubdomains="true">127.0.0.1</domain>  <!-- For local connections -->
+        <!-- Add your actual IP address if needed -->
+        <domain includeSubdomains="true">192.168.1.100</domain>  <!-- Replace with your actual IP -->
+    </domain-config>
+</network-security-config>

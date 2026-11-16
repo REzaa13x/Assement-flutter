@@ -18,7 +18,7 @@ class DonationCampaign {
   });
 
   // Getter untuk menghitung progress bar (0.0 sampai 1.0)
-  double get progress => (currentAmount / targetAmount).clamp(0.0, 1.0);
+  double get progress => targetAmount > 0 ? (currentAmount / targetAmount).clamp(0.0, 1.0) : 0.0;
 
   // BUAT API
   factory DonationCampaign.fromJson(Map<String, dynamic> json) {

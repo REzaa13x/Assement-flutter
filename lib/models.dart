@@ -1,5 +1,4 @@
-import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+export 'models/volunteer_campaign.dart';
 
 class Campaign {
   final int id;
@@ -51,34 +50,4 @@ class User {
     this.phone = '+1 234 567 890',
     this.profileImageUrl = 'https://picsum.photos/seed/profile_default/150/150',
   });
-}
-
-class VolunteerCampaign {
-  final int id;
-  final String title;
-  final String description;
-  final String imageUrl;
-  final String location;
-  final DateTime startDate;
-  final DateTime endDate;
-  final int maxVolunteers;
-  final int registeredVolunteers;
-  final String requirements;
-  final String benefits;
-
-  VolunteerCampaign({
-    required this.id,
-    required this.title,
-    required this.description,
-    required this.imageUrl,
-    required this.location,
-    required this.startDate,
-    required this.endDate,
-    required this.maxVolunteers,
-    required this.registeredVolunteers,
-    required this.requirements,
-    required this.benefits,
-  });
-
-  int get availableSpots => maxVolunteers - registeredVolunteers;
 }

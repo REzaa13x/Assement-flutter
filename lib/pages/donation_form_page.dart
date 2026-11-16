@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; 
-import '../models/donation_campaign.dart'; 
+import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../models/donation_campaign.dart';
+import '../repositories/donation_repository.dart';
+import '../services/payment_service.dart';
 
 const Color kPrimaryColor = Color(0xFF2972FF);
 const Color kBackgroundColor = Color(0xFFF8F9FA);
@@ -288,32 +291,138 @@ class _DonationFormPageState extends State<DonationFormPage> {
     );
   }
 
-  void _processDonation() {
+  void _processDonation() async {
     // 1. Ambil Data Campaign dari ModalRoute
     final campaign = ModalRoute.of(context)!.settings.arguments as DonationCampaign;
-    
+
     // 2. Bersihkan input nominal
     String cleanAmount = _amountController.text.replaceAll('.', '');
 
     // 3. Validasi
     if (cleanAmount.isEmpty || int.tryParse(cleanAmount) == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Isi nominal donasi dulu ya!")));
+      return;
     } else if (int.parse(cleanAmount) < 10000) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Minimal donasi Rp 10.000")));
+      return;
     } else if (_selectedPaymentMethod == "Pilih Metode Pembayaran") {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Pilih metode pembayaran dulu")));
-    } else {
-      // 4. KIRIM DATA LENGKAP KE HALAMAN SUKSES
+      return;
+    }
+
+    // 4. Tampilkan loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return const AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 20),
+              Text("Memproses pembayaran..."),
+            ],
+          ),
+        );
+      },
+    );
+
+    try {
+      // 5. Ambil token autentikasi
+      String? token = await _getToken();
+
+      if (token == null || token.isEmpty) {
+        Navigator.pop(context); // Tutup loading
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Anda harus login terlebih dahulu"))
+        );
+        return;
+      }
+
+      // Ambil data pengguna dari profil
+      Map<String, String> userData = await _getUserData(token);
+      String donorName = userData['name'] ?? "Donatur";
+      String donorEmail = userData['email'] ?? "donatur@example.com";
+      String donorPhone = userData['phone'] ?? "081234567890";
+
+      // Konversi metode pembayaran dari Flutter ke format yang diterima server
+      String paymentMethod = _convertPaymentMethod(_selectedPaymentMethod);
+
+      // 6. Kirim data ke server untuk pembayaran donasi
+      final donationResult = await PaymentService.createDonationPayment(
+        campaignId: campaign.id,
+        amount: double.parse(cleanAmount),
+        donorName: donorName,
+        donorEmail: donorEmail,
+        donorPhone: donorPhone,
+        paymentMethod: paymentMethod, // Kirim metode pembayaran
+        anonymous: false,
+        token: token,
+      );
+
+      // 7. Tutup loading
+      Navigator.pop(context);
+
+      // 8. Pindah ke halaman sukses dengan data pembayaran
       Navigator.pushReplacementNamed(
-        context, 
+        context,
         '/payment_success',
         arguments: {
           'method': _selectedPaymentMethod,
-          'amount': cleanAmount, 
-          'campaignTitle': campaign.title,   
+          'amount': cleanAmount,
+          'campaignTitle': campaign.title,
           'campaignCategory': campaign.category,
+          'campaignId': campaign.id, // Menyertakan ID kampanye
+          'transactionId': donationResult.orderId,
+          'status': donationResult.status,
         },
       );
+    } catch (e) {
+      // 9. Tutup loading
+      Navigator.pop(context);
+
+      // 10. Tampilkan error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Gagal memproses pembayaran: $e"), backgroundColor: Colors.red)
+      );
+    }
+  }
+
+  // Fungsi untuk mendapatkan token autentikasi
+  Future<String?> _getToken() async {
+    // Menggunakan shared preferences untuk mendapatkan token
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_token');
+  }
+
+  // Fungsi untuk mendapatkan data pengguna
+  Future<Map<String, String>> _getUserData(String? token) async {
+    // Dalam implementasi sebenarnya, ambil data pengguna dari API profil
+    // Untuk sementara, kita kembalikan data dummy
+    // Di sini Anda bisa menambahkan panggilan API untuk mendapatkan profil pengguna
+    return {
+      'name': 'Donatur', // Ini seharusnya diambil dari profil pengguna
+      'email': 'donatur@example.com', // Ini seharusnya diambil dari profil pengguna
+      'phone': '081234567890', // Ini seharusnya diambil dari profil pengguna
+    };
+  }
+
+  // Fungsi untuk mengkonversi metode pembayaran dari Flutter ke format yang diterima server
+  String _convertPaymentMethod(String selectedPaymentMethod) {
+    switch (selectedPaymentMethod) {
+      case "Gopay":
+      case "OVO":
+      case "DANA":
+      case "ShopeePay":
+        return 'e_wallet';
+      case "BCA Virtual Account":
+      case "Mandiri Transfer":
+      case "BRI Virtual Account":
+        return 'bank_transfer';
+      case "QRIS":
+        return 'qris';
+      default:
+        return 'bank_transfer'; // Default ke bank_transfer
     }
   }
 

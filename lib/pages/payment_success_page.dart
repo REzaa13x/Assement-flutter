@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/local_donation_service.dart';
+import '../models/donation_transaction.dart';
 import 'donation_history_page.dart'; // <--- 1. WAJIB IMPORT INI
 
 const Color kPrimaryColor = Color(0xFF2972FF);
@@ -50,27 +53,32 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> with SingleTick
   Widget build(BuildContext context) {
     // Menangkap Data dari Halaman Form
     final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-    
+
     final String paymentMethod = args?['method'] ?? "Metode Pembayaran";
     final String nominalStr = args?['amount'] ?? "0";
     final String title = args?['campaignTitle'] ?? "Donasi";
     final String category = args?['campaignCategory'] ?? "Umum";
+    final int campaignId = args?['campaignId'] ?? 0;
+    final String transactionId = args?['transactionId'] ?? _transactionRef;
+    final String status = args?['status'] ?? "BERHASIL";
 
     // -------------------------------------------------------------
     // 3. LOGIKA PENYIMPANAN DATA KE HISTORY (SANGAT PENTING!)
     // -------------------------------------------------------------
     if (!_isDataSaved && args != null) {
-      // Kita tambahkan data baru ke List Global di halaman History
-      DonationHistoryPage.globalHistoryData.add({
-        'title': title,
-        'amount': int.tryParse(nominalStr) ?? 0, // Konversi String ke Int
-        'date': _transactionTime,
-        'status': 'Berhasil',
-        'category': category,
-      });
-      
+      // Simpan data ke riwayat lokal
+      _saveDonationToHistory(
+        transactionId,
+        double.parse(nominalStr),
+        title,
+        status,
+        DateTime.now(),
+        paymentMethod,
+        campaignId,
+      );
+
       // Kunci agar tidak disimpan ulang kalau layar di-refresh
-      _isDataSaved = true; 
+      _isDataSaved = true;
     }
     // -------------------------------------------------------------
 
@@ -83,7 +91,7 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> with SingleTick
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 40),
-              
+
               // Animasi Centang
               ScaleTransition(
                 scale: _scaleAnimation,
@@ -91,7 +99,7 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> with SingleTick
                   width: 100,
                   height: 100,
                   decoration: BoxDecoration(
-                    color: Colors.green.shade50, 
+                    color: Colors.green.shade50,
                     shape: BoxShape.circle,
                   ),
                   child: Center(
@@ -99,7 +107,7 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> with SingleTick
                       width: 70,
                       height: 70,
                       decoration: const BoxDecoration(
-                        color: Colors.green, 
+                        color: Colors.green,
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
@@ -114,9 +122,9 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> with SingleTick
                   ),
                 ),
               ),
-              
+
               const SizedBox(height: 24),
-              
+
               const Text(
                 "Pembayaran Berhasil",
                 style: TextStyle(
@@ -148,13 +156,17 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> with SingleTick
                 ),
                 child: Column(
                   children: [
-                    _buildReceiptRow("Status", "BERHASIL", color: Colors.green, isBold: true),
+                    _buildReceiptRow("Status", status, color: Colors.green, isBold: true),
                     const Divider(height: 24),
                     _buildReceiptRow("Tanggal", _transactionTime),
                     const SizedBox(height: 12),
-                    _buildReceiptRow("No. Referensi", _transactionRef),
+                    _buildReceiptRow("No. Referensi", transactionId),
                     const SizedBox(height: 12),
-                    _buildReceiptRow("Metode", paymentMethod), 
+                    _buildReceiptRow("Metode", paymentMethod),
+                    const SizedBox(height: 12),
+                    _buildReceiptRow("Kampanye", title),
+                    const SizedBox(height: 12),
+                    _buildReceiptRow("Jumlah", "Rp ${int.parse(nominalStr).toString()}"),
                   ],
                 ),
               ),
@@ -175,22 +187,22 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> with SingleTick
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   child: const Text(
-                    "Lihat Riwayat Donasi", 
+                    "Lihat Riwayat Donasi",
                     style: TextStyle(fontWeight: FontWeight.bold, color: kPrimaryColor)
                   ),
                 ),
               ),
-              
+
               const SizedBox(height: 12),
-              
+
               // TOMBOL BERANDA
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
                     Navigator.pushNamedAndRemoveUntil(
-                      context, 
-                      '/', 
+                      context,
+                      '/',
                       (route) => false
                     );
                   },
@@ -202,7 +214,7 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> with SingleTick
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   child: const Text(
-                    "Kembali ke Beranda", 
+                    "Kembali ke Beranda",
                     style: TextStyle(fontWeight: FontWeight.bold)
                   ),
                 ),
@@ -212,6 +224,34 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> with SingleTick
         ),
       ),
     );
+  }
+
+  // Fungsi untuk menyimpan data donasi ke riwayat lokal
+  Future<void> _saveDonationToHistory(
+    String transactionId,
+    double amount,
+    String campaignTitle,
+    String status,
+    DateTime date,
+    String paymentMethod,
+    int campaignId,
+  ) async {
+    try {
+      final newDonation = DonationTransaction(
+        orderId: transactionId,
+        amount: amount,
+        donorName: "Donatur", // Ini seharusnya diambil dari profil pengguna
+        donorEmail: "donatur@example.com", // Ini seharusnya diambil dari profil pengguna
+        status: status,
+        paymentMethod: paymentMethod,
+        campaignId: campaignId, // Gunakan ID kampanye dari argumen
+        statusLabel: status,
+      );
+
+      await LocalDonationService.saveDonation(newDonation);
+    } catch (e) {
+      print('Error saving donation to local history: $e');
+    }
   }
 
   Widget _buildReceiptRow(String label, String value, {Color? color, bool isBold = false}) {

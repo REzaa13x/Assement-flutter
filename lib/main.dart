@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'models.dart'; // Model lama (tetap biarkan untuk halaman lain)
 import 'models/donation_campaign.dart'; // <--- 1. TAMBAHKAN IMPORT INI
+import 'models/volunteer_campaign.dart';
 
 // Pages
 import 'pages/home_page.dart';
@@ -18,28 +19,92 @@ import 'pages/volunteer_registration_form_page.dart';
 import 'pages/start_campaign_page.dart';
 import 'pages/edit_profile_page.dart';
 import 'pages/donation_history_page.dart';
+import 'pages/campaign_history_page.dart';
+import 'pages/volunteer_history_page.dart';
+import 'pages/my_certificates_page.dart';
+import 'pages/certificate_detail_page.dart';
+import 'models/volunteer_certificate.dart';
+import 'pages/notifications_page.dart'; // Halaman riwayat notifikasi
+import 'pages/donation_transaction_detail_page.dart'; // Detail donasi dari notifikasi
+import 'pages/assistant_chat_page.dart'; // DonGiv Assistant Chatbot
+import 'pages/campaign_page.dart'; // Import new campaign page
+import 'pages/reviews_page.dart'; // Halaman Ulasan dan Rating
+import 'pages/login_page.dart'; // Import login page
+import 'pages/register_page.dart'; // Import register page
+import 'pages/splash_page.dart'; // Import splash page
+import 'services/auth_service.dart'; // Import auth service
+import 'services/notification_service.dart'; // Import layanan notifikasi (FCM)
+import 'widgets/web_api_test.dart'; // Import web API test widget
+import 'widgets/connection_debug.dart'; // Import connection debug widget
+import 'widgets/manual_api_test.dart'; // Import manual API test widget
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Inisialisasi notifikasi (FCM + notifikasi lokal) sebelum aplikasi tampil.
+  // Jika Firebase belum dikonfigurasi, proses ini gagal diam-diam dan
+  // seluruh fitur lain tetap berjalan normal.
+  await NotificationService.initialize();
+
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({Key? key}) : super(key: key);
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  String _initialRoute = '/splash'; // Default route
+
+  @override
+  void initState() {
+    super.initState();
+    _checkLoginStatus();
+  }
+
+  Future<void> _checkLoginStatus() async {
+    await Future.delayed(const Duration(seconds: 1)); // Memberikan sedikit delay untuk inisialisasi
+    bool isLoggedIn = await AuthService.isLoggedIn();
+
+    String route = isLoggedIn ? '/' : '/login';
+
+    if (mounted) {
+      setState(() {
+        _initialRoute = route;
+      });
+
+      // Aplikasi sudah siap -> notifikasi yang dibuka dari luar aplikasi
+      // boleh melakukan navigasi
+      NotificationService.markAppReady();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Donation App',
+      // Navigator global untuk navigasi dari notifikasi (FCM)
+      navigatorKey: NotificationService.navigatorKey,
       theme: ThemeData(
         primarySwatch: Colors.blue,
         primaryColor: const Color(0xFF2972FF),
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      initialRoute: '/',
+      initialRoute: _initialRoute,
       routes: {
+        '/splash': (context) => const SplashPage(),
         '/': (context) => const HomePage(),
         '/list_campaign': (context) => const ListCampaignPage(),
-        
+        '/api_campaigns': (context) => const CampaignPage(), // New route for API-based campaigns
+        '/api_test': (context) => const WebApiTestScreen(), // API test route
+        '/debug': (context) => const ConnectionDebugScreen(), // Debug route
+        '/manual_test': (context) => const ManualApiTest(), // Manual API test route
+        '/login': (context) => const LoginPage(), // Login route
+        '/register': (context) => const RegisterPage(), // Register route
+
         // --- 2. PERBAIKAN DI BAGIAN INI ---
         '/campaign_detail': (context) {
           // Ganti 'Campaign?' menjadi 'DonationCampaign'
@@ -64,6 +129,30 @@ class MyApp extends StatelessWidget {
         '/profile': (context) => const ProfilePage(),
         '/edit_profile': (context) => const EditProfilePage(),
         '/donation_history': (context) => const DonationHistoryPage(),
+        '/campaign_history': (context) => const CampaignHistoryPage(),
+        '/volunteer_history': (context) => const VolunteerHistoryPage(),
+        '/my_certificates': (context) => const MyCertificatesPage(),
+        '/certificate_detail': (context) {
+          final cert = ModalRoute.of(context)?.settings.arguments as VolunteerCertificate?;
+          return CertificateDetailPage(certificate: cert);
+        },
+        '/notifications': (context) => const NotificationsPage(),
+        '/assistant_chat': (context) => const AssistantChatPage(),
+        '/donation_transaction_detail': (context) {
+          final arguments = ModalRoute.of(context)?.settings.arguments;
+          final orderId = arguments is Map
+              ? (arguments['order_id']?.toString() ?? '')
+              : (arguments?.toString() ?? '');
+          return DonationTransactionDetailPage(orderId: orderId);
+        },
+        '/reviews': (context) {
+          final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+          return ReviewsPage(
+            initialActivityType: args?['activity_type']?.toString(),
+            initialActivityId: args?['activity_id'] != null ? int.tryParse(args!['activity_id'].toString()) : null,
+            initialCampaignTitle: args?['campaign_title']?.toString(),
+          );
+        },
       },
       debugShowCheckedModeBanner: false,
     );

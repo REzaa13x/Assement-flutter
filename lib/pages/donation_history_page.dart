@@ -1,308 +1,465 @@
 import 'package:flutter/material.dart';
-
-// Warna Brand DonGiv
-const Color kPrimaryColor = Color(0xFF2972FF);
-const Color kSecondaryColor = Color(0xFF0052CC); // Warna biru lebih gelap untuk gradasi
-const Color kBackgroundColor = Color(0xFFF5F7FA);
-const Color kTextPrimary = Color(0xFF1A1A1A);
-const Color kTextSecondary = Color(0xFF888888);
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../models/donation_transaction.dart';
+import '../repositories/donation_repository.dart';
+import '../services/local_donation_service.dart'; // Import local donation service
 
 class DonationHistoryPage extends StatefulWidget {
   const DonationHistoryPage({Key? key}) : super(key: key);
-
-  // --- WADAH DATA GLOBAL (JANGAN DIHAPUS) ---
-  // Static agar data tersimpan meskipun pindah halaman
-  static List<Map<String, dynamic>> globalHistoryData = [
-    {
-      'title': 'Wakaf Air Bersih Desa',
-      'amount': 500000,
-      'date': '22/12/2025 14:30',
-      'status': 'Berhasil',
-      'category': 'Infrastruktur',
-    },
-    {
-      'title': 'Beasiswa Anak Yatim',
-      'amount': 100000,
-      'date': '15/12/2025 09:15',
-      'status': 'Berhasil',
-      'category': 'Pendidikan',
-    },
-  ];
 
   @override
   State<DonationHistoryPage> createState() => _DonationHistoryPageState();
 }
 
 class _DonationHistoryPageState extends State<DonationHistoryPage> {
-
-  // Helper Format Rupiah
-  String _formatCurrency(int amount) {
-    String amountStr = amount.toString();
-    String result = '';
-    int count = 0;
-    for (int i = amountStr.length - 1; i >= 0; i--) {
-      result = amountStr[i] + result;
-      count++;
-      if (count == 3 && i > 0) {
-        result = '.' + result;
-        count = 0;
-      }
-    }
-    return 'Rp $result';
-  }
+  bool _isLoading = true;
+  bool _hasError = false;
+  String _errorMessage = '';
+  List<DonationTransaction> _donationHistory = [];
+  int _currentPage = 1;
+  bool _hasMore = true;
 
   @override
-  Widget build(BuildContext context) {
-    final dataToShow = DonationHistoryPage.globalHistoryData;
+  void initState() {
+    super.initState();
+    _fetchDonationHistory();
+  }
 
-    // Hitung Total Donasi
-    int totalDonation = dataToShow
-        .where((item) => item['status'] == 'Berhasil')
-        .fold(0, (sum, item) => sum + (int.tryParse(item['amount'].toString()) ?? 0));
+  Future<void> _fetchDonationHistory() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _hasError = false;
+      });
 
-    return Scaffold(
-      backgroundColor: kBackgroundColor,
-      // AppBar Transparan karena kita pakai Custom Header
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        title: const Text(
-          'Riwayat Kebaikan',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle),
-            child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
-          ),
-          onPressed: () => Navigator.pop(context),
-        ),
+      // Ambil token dari storage
+      String? token = await _getToken();
+
+      if (token == null || token.isEmpty) {
+        // Jika token tidak ditemukan, tampilkan data lokal
+        print('No token found, loading local donation history...');
+        final localDonations = await LocalDonationService.getLocalDonations();
+        setState(() {
+          _donationHistory = localDonations;
+          _isLoading = false;
+          _hasMore = false;
+        });
+        return;
+      }
+
+      // Ambil data dari server
+      try {
+        print('Fetching donation history from server with token: ${token.substring(0, token.length < 10 ? token.length : 10)}...');
+        final response = await DonationRepository.getDonationHistory(token: token, page: _currentPage);
+        print('Server response received. Total items: ${response.data.length}');
+
+        // Ambil data lokal
+        final localDonations = await LocalDonationService.getLocalDonations();
+        print('Local donations count: ${localDonations.length}');
+
+        // Gabungkan data dari server dan lokal
+        // Tambahkan data lokal ke daftar jika belum ada di server
+        List<DonationTransaction> combinedDonations = List.from(response.data);
+
+        for (var localDonation in localDonations) {
+          // Cek apakah donation lokal sudah ada di data server
+          bool existsInServer = combinedDonations.any((serverDonation) =>
+              serverDonation.orderId == localDonation.orderId);
+
+          // Jika belum ada di server, tambahkan ke daftar
+          if (!existsInServer) {
+            combinedDonations.insert(0, localDonation); // Tambahkan di awal agar terbaru muncul duluan
+            print('Added local donation to combined list: ${localDonation.orderId}');
+          }
+        }
+
+        print('Final combined donations count: ${combinedDonations.length}');
+        setState(() {
+          _donationHistory = combinedDonations;
+          _isLoading = false;
+          _hasMore = response.currentPage < response.lastPage;
+        });
+      } catch (serverError) {
+        print('Server donation history failed: $serverError');
+        print('Loading local donation history instead...');
+
+        // Jika server gagal, tampilkan data lokal
+        final localDonations = await LocalDonationService.getLocalDonations();
+        setState(() {
+          _donationHistory = localDonations;
+          _isLoading = false;
+          _hasMore = false;
+        });
+      }
+    } catch (e) {
+      print('Error in _fetchDonationHistory: $e');
+      setState(() {
+        _isLoading = false;
+        _hasError = true;
+        _errorMessage = e.toString();
+      });
+    }
+  }
+
+  Future<void> _refreshDonationHistory() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _hasError = false;
+      });
+
+      // Ambil token dari storage
+      String? token = await _getToken();
+
+      if (token == null) {
+        throw Exception('Token tidak ditemukan. Silakan login kembali.');
+      }
+
+      print('Refreshing donation history from server with token: ${token.substring(0, token.length < 10 ? token.length : 10)}...');
+      final response = await DonationRepository.getDonationHistory(token: token, page: 1);
+      print('Refresh server response received. Total items: ${response.data.length}');
+
+      // Ambil data lokal
+      final localDonations = await LocalDonationService.getLocalDonations();
+      print('Local donations count for refresh: ${localDonations.length}');
+
+      // Gabungkan data dari server dan lokal
+      List<DonationTransaction> combinedDonations = List.from(response.data);
+
+      for (var localDonation in localDonations) {
+        // Cek apakah donation lokal sudah ada di data server
+        bool existsInServer = combinedDonations.any((serverDonation) =>
+            serverDonation.orderId == localDonation.orderId);
+
+        // Jika belum ada di server, tambahkan ke daftar
+        if (!existsInServer) {
+          combinedDonations.insert(0, localDonation); // Tambahkan di awal agar terbaru muncul duluan
+          print('Added local donation to combined list during refresh: ${localDonation.orderId}');
+        }
+      }
+
+      print('Final combined donations count after refresh: ${combinedDonations.length}');
+      setState(() {
+        _donationHistory = combinedDonations;
+        _isLoading = false;
+        _hasMore = response.currentPage < response.lastPage;
+        _currentPage = 1;
+      });
+    } catch (e) {
+      print('Error in _refreshDonationHistory: $e');
+      setState(() {
+        _isLoading = false;
+        _hasError = true;
+        _errorMessage = e.toString();
+      });
+    }
+  }
+
+  // Fungsi untuk mendapatkan token - implementasikan sesuai dengan state management Anda
+  Future<String?> _getToken() async {
+    // Dalam implementasi sebenarnya, ambil token dari storage
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_token');
+  }
+
+  Widget _buildDonationItem(DonationTransaction transaction) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      elevation: 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
       ),
-      body: Column(
-        children: [
-          // 1. MODERN GRADIENT HEADER
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(24, 100, 24, 30),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [kPrimaryColor, kSecondaryColor],
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Campaign Info
+            if (transaction.campaign != null) ...[
+              Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: transaction.campaign!.image != null
+                        ? CachedNetworkImage(
+                            imageUrl: transaction.campaign!.image!,
+                            width: 60,
+                            height: 60,
+                            fit: BoxFit.cover,
+                            errorWidget: (context, url, error) => Container(
+                              width: 60,
+                              height: 60,
+                              color: Colors.grey[300],
+                              child: const Icon(Icons.image_not_supported),
+                            ),
+                          )
+                        : Container(
+                            width: 60,
+                            height: 60,
+                            color: Colors.grey[300],
+                            child: const Icon(Icons.campaign),
+                          ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          transaction.campaign?.title ?? '',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          transaction.campaign?.kategori ?? transaction.campaign?.category ?? '',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
-              boxShadow: [
-                BoxShadow(color: Color(0x402972FF), blurRadius: 20, offset: Offset(0, 10)),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(10)),
-                      child: const Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 20),
-                    ),
-                    const SizedBox(width: 12),
-                    const Text("Total Donasi Anda", style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500)),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  _formatCurrency(totalDonation),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 36, // Font Besar
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: const [
-                    Icon(Icons.volunteer_activism, color: Colors.white70, size: 14),
-                    SizedBox(width: 6),
-                    Text(
-                      "Terima kasih telah menjadi #OrangBaik", 
-                      style: TextStyle(color: Colors.white70, fontSize: 12, fontStyle: FontStyle.italic)
-                    ),
-                  ],
-                )
-              ],
-            ),
-          ),
+              const SizedBox(height: 16),
+            ],
 
-          // 2. LIST RIWAYAT
-          Expanded(
-            child: dataToShow.isEmpty
-                ? _buildEmptyState()
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                    itemCount: dataToShow.length,
-                    physics: const BouncingScrollPhysics(),
-                    itemBuilder: (context, index) {
-                      // Balik urutan (Terbaru di atas)
-                      final item = dataToShow[dataToShow.length - 1 - index];
-                      return _buildModernHistoryCard(item);
-                    },
+            // Donation Info
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Jumlah Donasi',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
                   ),
-          ),
-        ],
+                ),
+                Text(
+                  'Rp ${transaction.amount.toStringAsFixed(0)}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // Status Info
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Status',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _getStatusColor(transaction.status),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    transaction.statusLabel,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // Order ID
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Order ID',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
+                  ),
+                ),
+                Text(
+                  transaction.orderId,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // Date
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Tanggal',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
+                  ),
+                ),
+                Text(
+                  _formatDate(transaction.verifiedAt ?? DateTime.now()),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toUpperCase()) {
+      case 'VERIFIED':
+        return Colors.green;
+      case 'PENDING_VERIFICATION':
+        return Colors.orange;
+      case 'AWAITING_TRANSFER':
+        return Colors.blue;
+      case 'CANCELLED':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
   }
 
   Widget _buildEmptyState() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 10)]),
-            child: Icon(Icons.receipt_long_rounded, size: 50, color: Colors.grey[300]),
-          ),
-          const SizedBox(height: 16),
-          Text("Belum ada riwayat donasi", style: TextStyle(color: Colors.grey[500], fontWeight: FontWeight.w500)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildModernHistoryCard(Map<String, dynamic> item) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: () {
-            // Bisa tambahkan navigasi ke detail transaksi jika mau
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Icon Kategori dengan Background Halus
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: _getCategoryColor(item['category']).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Icon(
-                    _getCategoryIcon(item['category']),
-                    color: _getCategoryColor(item['category']),
-                    size: 24,
-                  ),
-                ),
-                
-                const SizedBox(width: 16),
-                
-                // Detail Transaksi
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              item['title'],
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: kTextPrimary),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        item['date'],
-                        style: TextStyle(fontSize: 12, color: Colors.grey[400], fontWeight: FontWeight.w500),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            _formatCurrency(int.tryParse(item['amount'].toString()) ?? 0),
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: kPrimaryColor,
-                            ),
-                          ),
-                          _buildStatusBadge(item['status']),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.volunteer_activism, size: 80, color: Colors.grey[300]),
+            const SizedBox(height: 16),
+            const Text(
+              'Belum Ada Donasi',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
             ),
-          ),
+            const SizedBox(height: 8),
+            const Text(
+              'Kamu belum pernah melakukan donasi.\nAyo berdonasi untuk membantu sesama!',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey,
+                // textAlign: TextAlign.center, // Dihapus karena tidak digunakan di Text widget ini
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildStatusBadge(String status) {
-    Color color;
-    if (status == 'Berhasil') {
-      color = Colors.green;
-    } else {
-      color = Colors.orange;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        status.toUpperCase(),
-        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: Colors.red),
+            const SizedBox(height: 16),
+            Text(
+              'Gagal memuat data',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _errorMessage,
+              style: TextStyle(color: Colors.grey[600]),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: _refreshDonationHistory,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2972FF),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Coba Lagi'),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  IconData _getCategoryIcon(String? category) {
-    switch (category) {
-      case 'Pendidikan': return Icons.school_rounded;
-      case 'Medis': return Icons.medical_services_rounded;
-      case 'Bencana': return Icons.flood_rounded;
-      case 'Infrastruktur': return Icons.water_drop_rounded;
-      default: return Icons.volunteer_activism_rounded;
-    }
-  }
-
-  Color _getCategoryColor(String? category) {
-    switch (category) {
-      case 'Pendidikan': return Colors.orange;
-      case 'Medis': return Colors.red;
-      case 'Bencana': return Colors.brown;
-      case 'Infrastruktur': return Colors.blue;
-      default: return kPrimaryColor;
-    }
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Riwayat Donasi',
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: _hasError
+          ? _buildErrorState()
+          : _donationHistory.isEmpty && !_isLoading
+              ? _buildEmptyState()
+              : RefreshIndicator(
+                  onRefresh: _refreshDonationHistory,
+                  child: _isLoading && _donationHistory.isEmpty
+                      ? const Center(child: CircularProgressIndicator())
+                      : ListView.builder(
+                          padding: const EdgeInsets.only(top: 16),
+                          itemCount: _donationHistory.length + (_isLoading && _hasMore ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            if (index < _donationHistory.length) {
+                              return _buildDonationItem(_donationHistory[index]);
+                            } else {
+                              return const Padding(
+                                padding: EdgeInsets.all(16),
+                                child: Center(child: CircularProgressIndicator()),
+                              );
+                            }
+                          },
+                        ),
+                ),
+    );
   }
 }

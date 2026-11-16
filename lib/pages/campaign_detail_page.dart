@@ -242,6 +242,60 @@ class _CampaignDetailPageState extends State<CampaignDetailPage> with SingleTick
                     widget.campaign.description,
                     style: const TextStyle(fontSize: 15, height: 1.6, color: Color(0xFF444444)),
                   ),
+
+                  const SizedBox(height: 24),
+                  const Divider(thickness: 1, color: Color(0xFFEEEEEE)),
+                  const SizedBox(height: 16),
+
+                  // Ulasan & Rating Banner
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 32),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Ulasan & Rating Transparansi',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13.5,
+                                  color: kTextPrimary,
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Lihat ulasan terverifikasi dari donatur',
+                                style: TextStyle(fontSize: 11.5, color: kTextSecondary),
+                              ),
+                            ],
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pushNamed(
+                              context,
+                              '/reviews',
+                              arguments: {
+                                'activity_type': 'donation',
+                                'activity_id': widget.campaign.id,
+                                'campaign_title': widget.campaign.title,
+                              },
+                            );
+                          },
+                          child: const Text('Lihat', style: TextStyle(fontWeight: FontWeight.bold, color: kPrimaryColor)),
+                        ),
+                      ],
+                    ),
+                  ),
                   
                   const SizedBox(height: 80), // Spacer bawah
                 ],

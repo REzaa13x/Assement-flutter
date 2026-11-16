@@ -31,11 +31,11 @@ class ReviewsPage extends StatefulWidget {
 
 class _ReviewsPageState extends State<ReviewsPage> {
   final ScrollController _scrollController = ScrollController();
-  
+
   bool _isLoading = true;
   bool _hasError = false;
   String _errorMessage = '';
-  
+
   List<ReviewItem> _reviews = [];
   ReviewSummary _summary = ReviewSummary.empty();
   int? _currentUserId;
@@ -137,7 +137,8 @@ class _ReviewsPageState extends State<ReviewsPage> {
               children: [
                 CircularProgressIndicator(color: _kPrimaryColor),
                 SizedBox(height: 12),
-                Text('Memeriksa kelayakan aktivitas...', style: TextStyle(fontSize: 13, color: _kTextSecondary)),
+                Text('Memeriksa kelayakan aktivitas...',
+                    style: TextStyle(fontSize: 13, color: _kTextSecondary)),
               ],
             ),
           ),
@@ -145,12 +146,23 @@ class _ReviewsPageState extends State<ReviewsPage> {
       ),
     );
 
-    final eligibility = await ReviewRepository.getEligibility(token: _authToken!);
+    final ReviewEligibilityResult eligibility;
+    try {
+      eligibility = await ReviewRepository.getEligibility(token: _authToken!);
+    } catch (_) {
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Gagal memeriksa aktivitas. Silakan coba lagi.'),
+      ));
+      return;
+    }
 
     if (!mounted) return;
     Navigator.of(context, rootNavigator: true).pop(); // Close loading dialog
 
-    final unreviewed = eligibility.activities.where((a) => !a.hasReviewed).toList();
+    final unreviewed =
+        eligibility.activities.where((a) => !a.hasReviewed).toList();
 
     if (unreviewed.isEmpty) {
       if (eligibility.eligibleCount > 0) {
@@ -173,7 +185,8 @@ class _ReviewsPageState extends State<ReviewsPage> {
           children: [
             Icon(Icons.lock_outline_rounded, color: _kPrimaryColor),
             SizedBox(width: 8),
-            Text('Masuk Diperlukan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('Masuk Diperlukan',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ],
         ),
         content: const Text(
@@ -183,18 +196,21 @@ class _ReviewsPageState extends State<ReviewsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Nanti', style: TextStyle(color: _kTextSecondary)),
+            child:
+                const Text('Nanti', style: TextStyle(color: _kTextSecondary)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: _kPrimaryColor,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () {
               Navigator.pop(ctx);
               Navigator.pushNamed(context, '/login');
             },
-            child: const Text('Masuk Sekarang', style: TextStyle(color: Colors.white)),
+            child: const Text('Masuk Sekarang',
+                style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -210,7 +226,8 @@ class _ReviewsPageState extends State<ReviewsPage> {
           children: [
             Icon(Icons.verified_user_outlined, color: _kPrimaryColor),
             SizedBox(width: 8),
-            Text('Syarat Pemberian Ulasan', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+            Text('Syarat Pemberian Ulasan',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
           ],
         ),
         content: const Column(
@@ -219,7 +236,8 @@ class _ReviewsPageState extends State<ReviewsPage> {
           children: [
             Text(
               'Untuk menjaga transparansi dan keaslian ulasan, DonGiv hanya menerima ulasan dari pengguna yang telah menyelesaikan aktivitas berikut:',
-              style: TextStyle(fontSize: 13, color: _kTextSecondary, height: 1.4),
+              style:
+                  TextStyle(fontSize: 13, color: _kTextSecondary, height: 1.4),
             ),
             SizedBox(height: 12),
             Row(
@@ -243,7 +261,7 @@ class _ReviewsPageState extends State<ReviewsPage> {
                 SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Kegiatan relawan yang telah disetujui oleh pengelola program.',
+                    'Kegiatan relawan yang telah disetujui dan telah selesai.',
                     style: TextStyle(fontSize: 12.5, color: _kTextPrimary),
                   ),
                 ),
@@ -255,10 +273,12 @@ class _ReviewsPageState extends State<ReviewsPage> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: _kPrimaryColor,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Mengerti', style: TextStyle(color: Colors.white)),
+            child:
+                const Text('Mengerti', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -274,7 +294,8 @@ class _ReviewsPageState extends State<ReviewsPage> {
           children: [
             Icon(Icons.thumb_up_alt_outlined, color: Colors.green),
             SizedBox(width: 8),
-            Text('Semua Telah Diulas', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+            Text('Semua Telah Diulas',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
           ],
         ),
         content: const Text(
@@ -285,7 +306,8 @@ class _ReviewsPageState extends State<ReviewsPage> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: _kPrimaryColor,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Tutup', style: TextStyle(color: Colors.white)),
@@ -329,7 +351,8 @@ class _ReviewsPageState extends State<ReviewsPage> {
               children: [
                 CircularProgressIndicator(color: _kPrimaryColor),
                 SizedBox(height: 12),
-                Text('Mengirim ulasan Anda...', style: TextStyle(fontSize: 13, color: _kTextSecondary)),
+                Text('Mengirim ulasan Anda...',
+                    style: TextStyle(fontSize: 13, color: _kTextSecondary)),
               ],
             ),
           ),
@@ -357,7 +380,9 @@ class _ReviewsPageState extends State<ReviewsPage> {
             children: [
               const Icon(Icons.check_circle_rounded, color: Colors.white),
               const SizedBox(width: 8),
-              Expanded(child: Text(result['message'] ?? 'Ulasan berhasil disimpan!')),
+              Expanded(
+                  child:
+                      Text(result['message'] ?? 'Ulasan berhasil disimpan!')),
             ],
           ),
           backgroundColor: Colors.green.shade600,
@@ -372,7 +397,8 @@ class _ReviewsPageState extends State<ReviewsPage> {
             children: [
               const Icon(Icons.error_outline_rounded, color: Colors.white),
               const SizedBox(width: 8),
-              Expanded(child: Text(result['message'] ?? 'Gagal mengirim ulasan.')),
+              Expanded(
+                  child: Text(result['message'] ?? 'Gagal mengirim ulasan.')),
             ],
           ),
           backgroundColor: Colors.red.shade600,
@@ -394,8 +420,10 @@ class _ReviewsPageState extends State<ReviewsPage> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
           return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Text('Ubah Ulasan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Text('Ubah Ulasan',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -403,10 +431,17 @@ class _ReviewsPageState extends State<ReviewsPage> {
                 children: [
                   Text(
                     review.campaignTitle,
-                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: _kPrimaryColor),
+                    style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: _kPrimaryColor),
                   ),
                   const SizedBox(height: 12),
-                  const Text('Rating:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _kTextPrimary)),
+                  const Text('Rating:',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: _kTextPrimary)),
                   const SizedBox(height: 6),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -417,8 +452,12 @@ class _ReviewsPageState extends State<ReviewsPage> {
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                         icon: Icon(
-                          starValue <= rating ? Icons.star_rounded : Icons.star_border_rounded,
-                          color: starValue <= rating ? _kStarColor : const Color(0xFFCBD5E1),
+                          starValue <= rating
+                              ? Icons.star_rounded
+                              : Icons.star_border_rounded,
+                          color: starValue <= rating
+                              ? _kStarColor
+                              : const Color(0xFFCBD5E1),
                         ),
                         onPressed: () {
                           setDialogState(() => rating = starValue);
@@ -427,15 +466,23 @@ class _ReviewsPageState extends State<ReviewsPage> {
                     }),
                   ),
                   const SizedBox(height: 12),
-                  const Text('Ulasan:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _kTextPrimary)),
+                  const Text('Ulasan:',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: _kTextPrimary)),
                   const SizedBox(height: 6),
                   TextField(
                     controller: commentController,
                     maxLines: 4,
                     decoration: InputDecoration(
                       hintText: 'Tuliskan ulasan Anda...',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _kBorderColor)),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _kPrimaryColor)),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: _kBorderColor)),
+                      focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: _kPrimaryColor)),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -451,7 +498,8 @@ class _ReviewsPageState extends State<ReviewsPage> {
                       const Expanded(
                         child: Text(
                           'Sembunyikan nama (Anonim)',
-                          style: TextStyle(fontSize: 12, color: _kTextSecondary),
+                          style:
+                              TextStyle(fontSize: 12, color: _kTextSecondary),
                         ),
                       ),
                     ],
@@ -462,12 +510,14 @@ class _ReviewsPageState extends State<ReviewsPage> {
             actions: [
               TextButton(
                 onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
-                child: const Text('Batal', style: TextStyle(color: _kTextSecondary)),
+                child: const Text('Batal',
+                    style: TextStyle(color: _kTextSecondary)),
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _kPrimaryColor,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
                 ),
                 onPressed: isSubmitting
                     ? null
@@ -475,7 +525,8 @@ class _ReviewsPageState extends State<ReviewsPage> {
                         final text = commentController.text.trim();
                         if (text.length < 5) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Ulasan minimal 5 karakter.')),
+                            const SnackBar(
+                                content: Text('Ulasan minimal 5 karakter.')),
                           );
                           return;
                         }
@@ -498,21 +549,29 @@ class _ReviewsPageState extends State<ReviewsPage> {
 
                         if (res['success'] == true) {
                           messenger.showSnackBar(
-                            SnackBar(content: Text(res['message'] ?? 'Ulasan berhasil diperbarui.')),
+                            SnackBar(
+                                content: Text(res['message'] ??
+                                    'Ulasan berhasil diperbarui.')),
                           );
                           _fetchReviews();
                         } else {
                           messenger.showSnackBar(
                             SnackBar(
-                              content: Text(res['message'] ?? 'Gagal memperbarui ulasan.'),
+                              content: Text(res['message'] ??
+                                  'Gagal memperbarui ulasan.'),
                               backgroundColor: Colors.red,
                             ),
                           );
                         }
                       },
                 child: isSubmitting
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('Simpan', style: TextStyle(color: Colors.white)),
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : const Text('Simpan',
+                        style: TextStyle(color: Colors.white)),
               ),
             ],
           );
@@ -526,7 +585,8 @@ class _ReviewsPageState extends State<ReviewsPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Hapus Ulasan', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+        title: const Text('Hapus Ulasan',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
         content: const Text(
           'Apakah Anda yakin ingin menghapus ulasan ini? Tindakan ini tidak dapat dibatalkan.',
           style: TextStyle(fontSize: 13.5, color: _kTextSecondary),
@@ -534,12 +594,14 @@ class _ReviewsPageState extends State<ReviewsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal', style: TextStyle(color: _kTextSecondary)),
+            child:
+                const Text('Batal', style: TextStyle(color: _kTextSecondary)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red.shade600,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () async {
               Navigator.pop(ctx);
@@ -588,16 +650,21 @@ class _ReviewsPageState extends State<ReviewsPage> {
         backgroundColor: Colors.white,
         elevation: 0.5,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: _kTextPrimary, size: 20),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded,
+              color: _kTextPrimary, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
           TextButton.icon(
             onPressed: _handleWriteReview,
-            icon: const Icon(Icons.edit_note_rounded, color: _kPrimaryColor, size: 20),
+            icon: const Icon(Icons.edit_note_rounded,
+                color: _kPrimaryColor, size: 20),
             label: const Text(
               'Tulis',
-              style: TextStyle(color: _kPrimaryColor, fontWeight: FontWeight.bold, fontSize: 13),
+              style: TextStyle(
+                  color: _kPrimaryColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13),
             ),
           ),
         ],
@@ -606,12 +673,14 @@ class _ReviewsPageState extends State<ReviewsPage> {
         onRefresh: _fetchReviews,
         color: _kPrimaryColor,
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: _kPrimaryColor))
+            ? const Center(
+                child: CircularProgressIndicator(color: _kPrimaryColor))
             : _hasError
                 ? _buildErrorView()
                 : CustomScrollView(
                     controller: _scrollController,
-                    physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                    physics: const AlwaysScrollableScrollPhysics(
+                        parent: BouncingScrollPhysics()),
                     slivers: [
                       // Rating Summary Section
                       SliverToBoxAdapter(
@@ -624,7 +693,8 @@ class _ReviewsPageState extends State<ReviewsPage> {
                       // Filter Chips
                       SliverToBoxAdapter(
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
                           child: _buildFilterChips(),
                         ),
                       ),
@@ -637,7 +707,7 @@ class _ReviewsPageState extends State<ReviewsPage> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'Semua Ulasan (${_reviews.length})',
+                                '${_selectedFilter == 'donation' ? 'Donasi' : _selectedFilter == 'volunteer' ? 'Relawan' : 'Semua Ulasan'} (${_summary.totalReviews})',
                                 style: const TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700,
@@ -646,7 +716,8 @@ class _ReviewsPageState extends State<ReviewsPage> {
                               ),
                               const Row(
                                 children: [
-                                  Icon(Icons.verified_rounded, size: 14, color: Colors.green),
+                                  Icon(Icons.verified_rounded,
+                                      size: 14, color: Colors.green),
                                   SizedBox(width: 4),
                                   Text(
                                     '100% Terverifikasi',
@@ -676,7 +747,8 @@ class _ReviewsPageState extends State<ReviewsPage> {
                             delegate: SliverChildBuilderDelegate(
                               (context, index) {
                                 final review = _reviews[index];
-                                final isOwner = _currentUserId != null && review.userId == _currentUserId;
+                                final isOwner = _currentUserId != null &&
+                                    review.userId == _currentUserId;
                                 return _buildReviewCard(review, isOwner);
                               },
                               childCount: _reviews.length,
@@ -689,10 +761,12 @@ class _ReviewsPageState extends State<ReviewsPage> {
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: _kPrimaryColor,
         elevation: 3,
-        icon: const Icon(Icons.rate_review_rounded, color: Colors.white, size: 20),
+        icon: const Icon(Icons.rate_review_rounded,
+            color: Colors.white, size: 20),
         label: const Text(
           'Tulis Ulasan',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+          style: TextStyle(
+              color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
         ),
         onPressed: _handleWriteReview,
       ),
@@ -744,8 +818,12 @@ class _ReviewsPageState extends State<ReviewsPage> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: List.generate(5, (index) {
                         return Icon(
-                          index < avg.round() ? Icons.star_rounded : Icons.star_border_rounded,
-                          color: index < avg.round() ? _kStarColor : const Color(0xFFCBD5E1),
+                          index < avg.round()
+                              ? Icons.star_rounded
+                              : Icons.star_border_rounded,
+                          color: index < avg.round()
+                              ? _kStarColor
+                              : const Color(0xFFCBD5E1),
                           size: 18,
                         );
                       }),
@@ -782,10 +860,14 @@ class _ReviewsPageState extends State<ReviewsPage> {
                         children: [
                           Text(
                             '$star',
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _kTextSecondary),
+                            style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: _kTextSecondary),
                           ),
                           const SizedBox(width: 3),
-                          const Icon(Icons.star_rounded, size: 12, color: _kStarColor),
+                          const Icon(Icons.star_rounded,
+                              size: 12, color: _kStarColor),
                           const SizedBox(width: 8),
                           Expanded(
                             child: ClipRRect(
@@ -795,7 +877,9 @@ class _ReviewsPageState extends State<ReviewsPage> {
                                 minHeight: 6,
                                 backgroundColor: const Color(0xFFF1F5F9),
                                 valueColor: AlwaysStoppedAnimation<Color>(
-                                  star >= 4 ? _kPrimaryColor : const Color(0xFF94A3B8),
+                                  star >= 4
+                                      ? _kPrimaryColor
+                                      : const Color(0xFF94A3B8),
                                 ),
                               ),
                             ),
@@ -806,7 +890,8 @@ class _ReviewsPageState extends State<ReviewsPage> {
                             child: Text(
                               '$count',
                               textAlign: TextAlign.end,
-                              style: const TextStyle(fontSize: 10, color: _kTextSecondary),
+                              style: const TextStyle(
+                                  fontSize: 10, color: _kTextSecondary),
                             ),
                           ),
                         ],
@@ -908,12 +993,15 @@ class _ReviewsPageState extends State<ReviewsPage> {
               CircleAvatar(
                 radius: 19,
                 backgroundColor: const Color(0xFFEFF6FF),
-                backgroundImage: (review.userAvatar != null && review.userAvatar!.isNotEmpty)
-                    ? CachedNetworkImageProvider(review.userAvatar!)
-                    : null,
+                backgroundImage:
+                    (review.userAvatar != null && review.userAvatar!.isNotEmpty)
+                        ? CachedNetworkImageProvider(review.userAvatar!)
+                        : null,
                 child: (review.userAvatar == null || review.userAvatar!.isEmpty)
                     ? Text(
-                        review.userName.isNotEmpty ? review.userName[0].toUpperCase() : 'U',
+                        review.userName.isNotEmpty
+                            ? review.userName[0].toUpperCase()
+                            : 'U',
                         style: const TextStyle(
                           color: _kPrimaryColor,
                           fontWeight: FontWeight.w800,
@@ -944,7 +1032,8 @@ class _ReviewsPageState extends State<ReviewsPage> {
                         if (review.isVerified) ...[
                           const SizedBox(width: 6),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 1.5),
                             decoration: BoxDecoration(
                               color: const Color(0xFFDCFCE7),
                               borderRadius: BorderRadius.circular(4),
@@ -952,7 +1041,8 @@ class _ReviewsPageState extends State<ReviewsPage> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.check_circle_rounded, size: 10, color: Color(0xFF16A34A)),
+                                const Icon(Icons.check_circle_rounded,
+                                    size: 10, color: Color(0xFF16A34A)),
                                 const SizedBox(width: 3),
                                 Text(
                                   isVolunteer ? 'Relawan' : 'Donatur',
@@ -970,8 +1060,11 @@ class _ReviewsPageState extends State<ReviewsPage> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      review.timeAgo.isNotEmpty ? review.timeAgo : review.createdAtFormatted,
-                      style: const TextStyle(fontSize: 11, color: _kTextSecondary),
+                      review.timeAgo.isNotEmpty
+                          ? review.timeAgo
+                          : review.createdAtFormatted,
+                      style:
+                          const TextStyle(fontSize: 11, color: _kTextSecondary),
                     ),
                   ],
                 ),
@@ -982,8 +1075,12 @@ class _ReviewsPageState extends State<ReviewsPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: List.generate(5, (index) {
                   return Icon(
-                    index < review.rating ? Icons.star_rounded : Icons.star_border_rounded,
-                    color: index < review.rating ? _kStarColor : const Color(0xFFCBD5E1),
+                    index < review.rating
+                        ? Icons.star_rounded
+                        : Icons.star_border_rounded,
+                    color: index < review.rating
+                        ? _kStarColor
+                        : const Color(0xFFCBD5E1),
                     size: 15,
                   );
                 }),
@@ -992,7 +1089,8 @@ class _ReviewsPageState extends State<ReviewsPage> {
               // Owner Action Menu
               if (isOwner)
                 PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert_rounded, size: 18, color: _kTextSecondary),
+                  icon: const Icon(Icons.more_vert_rounded,
+                      size: 18, color: _kTextSecondary),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                   onSelected: (value) {
@@ -1007,7 +1105,8 @@ class _ReviewsPageState extends State<ReviewsPage> {
                       value: 'edit',
                       child: Row(
                         children: [
-                          Icon(Icons.edit_outlined, size: 16, color: _kPrimaryColor),
+                          Icon(Icons.edit_outlined,
+                              size: 16, color: _kPrimaryColor),
                           SizedBox(width: 8),
                           Text('Ubah Ulasan', style: TextStyle(fontSize: 13)),
                         ],
@@ -1017,9 +1116,12 @@ class _ReviewsPageState extends State<ReviewsPage> {
                       value: 'delete',
                       child: Row(
                         children: [
-                          Icon(Icons.delete_outline_rounded, size: 16, color: Colors.red),
+                          Icon(Icons.delete_outline_rounded,
+                              size: 16, color: Colors.red),
                           SizedBox(width: 8),
-                          Text('Hapus Ulasan', style: TextStyle(fontSize: 13, color: Colors.red)),
+                          Text('Hapus Ulasan',
+                              style:
+                                  TextStyle(fontSize: 13, color: Colors.red)),
                         ],
                       ),
                     ),
@@ -1041,7 +1143,9 @@ class _ReviewsPageState extends State<ReviewsPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  isVolunteer ? Icons.volunteer_activism_rounded : Icons.campaign_rounded,
+                  isVolunteer
+                      ? Icons.volunteer_activism_rounded
+                      : Icons.campaign_rounded,
                   size: 13,
                   color: _kPrimaryColor,
                 ),
@@ -1120,12 +1224,17 @@ class _ReviewsPageState extends State<ReviewsPage> {
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: _kPrimaryColor,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
               ),
               onPressed: _handleWriteReview,
-              icon: const Icon(Icons.edit_note_rounded, color: Colors.white, size: 18),
-              label: const Text('Beri Ulasan Pertama', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              icon: const Icon(Icons.edit_note_rounded,
+                  color: Colors.white, size: 18),
+              label: const Text('Beri Ulasan Pertama',
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -1140,7 +1249,8 @@ class _ReviewsPageState extends State<ReviewsPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.wifi_off_rounded, size: 48, color: Color(0xFF94A3B8)),
+            const Icon(Icons.wifi_off_rounded,
+                size: 48, color: Color(0xFF94A3B8)),
             const SizedBox(height: 16),
             Text(
               _errorMessage,
@@ -1151,7 +1261,8 @@ class _ReviewsPageState extends State<ReviewsPage> {
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: _kPrimaryColor),
               onPressed: _fetchReviews,
-              child: const Text('Coba Lagi', style: TextStyle(color: Colors.white)),
+              child: const Text('Coba Lagi',
+                  style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
@@ -1163,7 +1274,8 @@ class _ReviewsPageState extends State<ReviewsPage> {
 // --- REVIEW FORM BOTTOM SHEET ---
 class _ReviewFormSheet extends StatefulWidget {
   final List<EligibleActivity> activities;
-  final Function(EligibleActivity activity, int rating, String comment, bool isAnonymous) onSubmit;
+  final Function(EligibleActivity activity, int rating, String comment,
+      bool isAnonymous) onSubmit;
 
   const _ReviewFormSheet({
     Key? key,
@@ -1271,7 +1383,10 @@ class _ReviewFormSheetState extends State<_ReviewFormSheet> {
             // Activity Selector
             const Text(
               'Pilih Aktivitas yang Dinilai',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _kTextPrimary),
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: _kTextPrimary),
             ),
             const SizedBox(height: 6),
             Container(
@@ -1285,7 +1400,8 @@ class _ReviewFormSheetState extends State<_ReviewFormSheet> {
                 child: DropdownButton<EligibleActivity>(
                   value: _selectedActivity,
                   isExpanded: true,
-                  icon: const Icon(Icons.keyboard_arrow_down_rounded, color: _kTextSecondary),
+                  icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                      color: _kTextSecondary),
                   items: widget.activities.map((act) {
                     final isVol = act.activityType == 'volunteer';
                     return DropdownMenuItem<EligibleActivity>(
@@ -1306,7 +1422,8 @@ class _ReviewFormSheetState extends State<_ReviewFormSheet> {
                           ),
                           Text(
                             '${isVol ? 'Aksi Relawan' : 'Donasi'} • ${act.subtitle} • ${act.date}',
-                            style: const TextStyle(fontSize: 11, color: _kTextSecondary),
+                            style: const TextStyle(
+                                fontSize: 11, color: _kTextSecondary),
                           ),
                         ],
                       ),
@@ -1327,7 +1444,10 @@ class _ReviewFormSheetState extends State<_ReviewFormSheet> {
             const Center(
               child: Text(
                 'Berapa rating kepuasan Anda?',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _kTextPrimary),
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: _kTextPrimary),
               ),
             ),
             const SizedBox(height: 8),
@@ -1368,7 +1488,10 @@ class _ReviewFormSheetState extends State<_ReviewFormSheet> {
             // Comment Field
             const Text(
               'Ceritakan Pengalaman Anda',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _kTextPrimary),
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: _kTextPrimary),
             ),
             const SizedBox(height: 6),
             TextField(
@@ -1376,8 +1499,10 @@ class _ReviewFormSheetState extends State<_ReviewFormSheet> {
               maxLines: 4,
               maxLength: 1000,
               decoration: InputDecoration(
-                hintText: 'Tuliskan kesan, pesan, atau dampak yang Anda rasakan...',
-                hintStyle: const TextStyle(fontSize: 12.5, color: Color(0xFF94A3B8)),
+                hintText:
+                    'Tuliskan kesan, pesan, atau dampak yang Anda rasakan...',
+                hintStyle:
+                    const TextStyle(fontSize: 12.5, color: Color(0xFF94A3B8)),
                 errorText: _commentError,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -1385,7 +1510,8 @@ class _ReviewFormSheetState extends State<_ReviewFormSheet> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: _kPrimaryColor, width: 1.5),
+                  borderSide:
+                      const BorderSide(color: _kPrimaryColor, width: 1.5),
                 ),
                 contentPadding: const EdgeInsets.all(14),
               ),
@@ -1408,7 +1534,10 @@ class _ReviewFormSheetState extends State<_ReviewFormSheet> {
                     children: [
                       Text(
                         'Kirim sebagai Anonim',
-                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: _kTextPrimary),
+                        style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: _kTextPrimary),
                       ),
                       Text(
                         'Nama Anda akan disamarkan menjadi "Donatur Anonim".',
@@ -1429,7 +1558,8 @@ class _ReviewFormSheetState extends State<_ReviewFormSheet> {
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _kPrimaryColor,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                   elevation: 2,
                 ),
                 onPressed: _validateAndSubmit,

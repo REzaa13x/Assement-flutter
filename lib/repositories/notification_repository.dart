@@ -15,7 +15,9 @@ class NotificationRepository {
     String? categoryFilter, // all | donasi | relawan | kampanye | sistem
   }) async {
     String endpoint = 'v1/notifications?page=$page&per_page=$perPage';
-    if (categoryFilter != null && categoryFilter.isNotEmpty && categoryFilter != 'all') {
+    if (categoryFilter != null &&
+        categoryFilter.isNotEmpty &&
+        categoryFilter != 'all') {
       endpoint += '&filter=$categoryFilter';
     }
 
@@ -29,7 +31,8 @@ class NotificationRepository {
     if (response.statusCode == 200) {
       final List<dynamic> items = body['data'] is List ? body['data'] : [];
       return items
-          .map((item) => AppNotification.fromJson(Map<String, dynamic>.from(item)))
+          .map((item) =>
+              AppNotification.fromJson(Map<String, dynamic>.from(item)))
           .toList();
     }
 
@@ -46,6 +49,8 @@ class NotificationRepository {
     final body = _decode(response.body);
 
     if (response.statusCode == 200) {
+      final count = body['unread_count'];
+      if (count is num) return count.toInt();
       final data = body['data'];
       if (data is Map && data['unread_count'] is int) {
         return data['unread_count'] as int;
@@ -62,7 +67,7 @@ class NotificationRepository {
     String? authToken,
   }) async {
     final response = await ApiService.put(
-      'v1/notifications/$id/read',
+      'v1/notifications/${Uri.encodeComponent(id)}/mark-read',
       const {},
       token: authToken,
     );
@@ -72,8 +77,8 @@ class NotificationRepository {
 
   /// Tandai semua notifikasi sebagai sudah dibaca.
   static Future<bool> markAllAsRead({String? authToken}) async {
-    final response = await ApiService.put(
-      'v1/notifications/read-all',
+    final response = await ApiService.post(
+      'v1/notifications/mark-all-read',
       const {},
       token: authToken,
     );
@@ -127,7 +132,9 @@ class NotificationRepository {
 
   static String? _messageOf(Map<String, dynamic> body) {
     final message = body['message'];
-    if (message is String && message.isNotEmpty && message != 'Validation failed') {
+    if (message is String &&
+        message.isNotEmpty &&
+        message != 'Validation failed') {
       return message;
     }
     final errors = body['errors'];

@@ -1,7 +1,5 @@
 import 'dart:convert';
-import 'dart:math';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/auth.dart';
 import '../services/api_service.dart';
 import '../services/profile_service.dart';
@@ -21,13 +19,12 @@ class AuthRepository {
         'email': email,
         'password': password,
         'password_confirmation': password,
+        'role': 'user',
         if (phone != null) 'phone': phone,
         if (birthDate != null) 'birth_date': birthDate,
       });
 
       print('Register response status: ${response.statusCode}');
-      print('Register response body length: ${response.body.length}');
-      print('Register response body preview: ${response.body.substring(0, min(response.body.length, 500))}...');
 
       if (response.statusCode == 201) {
         // Ambil respons dan bersihkan karakter tambahan
@@ -45,7 +42,6 @@ class AuthRepository {
             return AuthResponse.fromJson(jsonData);
           } catch (jsonError) {
             print('JSON parsing error: $jsonError');
-            print('Attempted to parse: $jsonString');
             throw Exception('Invalid JSON format after extraction');
           }
         } else {
@@ -71,7 +67,6 @@ class AuthRepository {
             );
           } catch (jsonError) {
             print('JSON parsing error for error response: $jsonError');
-            print('Attempted to parse: $jsonString');
             throw Exception('Invalid JSON format after extraction');
           }
         } else {
@@ -100,8 +95,6 @@ class AuthRepository {
       });
 
       print('Login response status: ${response.statusCode}');
-      print('Login response body length: ${response.body.length}');
-      print('Login response body preview: ${response.body.substring(0, min(response.body.length, 500))}...');
 
       if (response.statusCode == 200) {
         // Coba parsing langsung karena sekarang menggunakan endpoint yang benar
@@ -117,7 +110,6 @@ class AuthRepository {
           return authResponse;
         } catch (jsonError) {
           print('JSON parsing error: $jsonError');
-          print('Full response body: ${response.body}');
           throw Exception('Invalid JSON response format');
         }
       } else {
@@ -131,7 +123,6 @@ class AuthRepository {
           );
         } catch (jsonError) {
           print('JSON parsing error for error response: $jsonError');
-          print('Full response body: ${response.body}');
           throw Exception('Invalid JSON response format');
         }
       }
@@ -178,7 +169,6 @@ class AuthRepository {
           return AuthResponse.fromJson(jsonData);
         } catch (jsonError) {
           print('JSON parsing error: $jsonError');
-          print('Full response body: ${response.body}');
           throw Exception('Invalid JSON response format');
         }
       } else if (response.statusCode == 401) {
@@ -195,7 +185,6 @@ class AuthRepository {
           );
         } catch (jsonError) {
           print('JSON parsing error for error response: $jsonError');
-          print('Full response body: ${response.body}');
           throw Exception('Invalid JSON response format');
         }
       }
@@ -226,7 +215,6 @@ class AuthRepository {
           return AuthResponse.fromJson(jsonData);
         } catch (jsonError) {
           print('JSON parsing error: $jsonError');
-          print('Full response body: ${response.body}');
           throw Exception('Invalid JSON response format');
         }
       } else {
@@ -238,7 +226,6 @@ class AuthRepository {
           );
         } catch (jsonError) {
           print('JSON parsing error for error response: $jsonError');
-          print('Full response body: ${response.body}');
           throw Exception('Invalid JSON response format');
         }
       }
@@ -263,7 +250,8 @@ class ProfileRepository {
 
     try {
       // Coba endpoint utama dulu
-      print('Making request to: v1/profile with token: ${token.substring(0, 10)}...');
+      print(
+          'Making request to: v1/profile with token: ${token.substring(0, 10)}...');
       final response = await ApiService.get('v1/profile', token: token);
 
       print('Profile response status: ${response.statusCode}');
@@ -284,7 +272,6 @@ class ProfileRepository {
           );
         } catch (jsonError) {
           print('JSON parsing error for error response: $jsonError');
-          print('Full response body: ${response.body}');
           throw Exception('Invalid JSON response format');
         }
       }
@@ -320,7 +307,8 @@ class ProfileRepository {
         final localProfile = await ProfileService.getUserProfile();
         if (localProfile != null) {
           return ProfileResponse(
-            message: 'User profile retrieved from local storage due to server issues',
+            message:
+                'User profile retrieved from local storage due to server issues',
             data: localProfile,
           );
         } else {
@@ -339,7 +327,7 @@ class ProfileRepository {
     String? email,
     String? phone,
     String? birthDate,
-    String? address,  // Menambahkan parameter address
+    String? address, // Menambahkan parameter address
     String? password,
     String? currentPassword,
   }) async {
@@ -356,14 +344,18 @@ class ProfileRepository {
       if (email != null) updateData['email'] = email;
       if (phone != null) updateData['phone'] = phone;
       if (birthDate != null) updateData['birth_date'] = birthDate;
-      if (address != null) updateData['address'] = address;  // Menambahkan parameter address
+      if (address != null)
+        updateData['address'] = address; // Menambahkan parameter address
       if (password != null) {
         updateData['password'] = password;
-        if (currentPassword != null) updateData['current_password'] = currentPassword;
+        updateData['password_confirmation'] = password;
+        if (currentPassword != null)
+          updateData['current_password'] = currentPassword;
       }
 
       print('Making request to update profile on server...');
-      final response = await ApiService.put('v1/profile', updateData, token: token);
+      final response =
+          await ApiService.put('v1/profile', updateData, token: token);
 
       print('Update profile response status: ${response.statusCode}');
       if (response.statusCode == 200) {
@@ -381,6 +373,7 @@ class ProfileRepository {
           photo: updatedUser.photo,
           phone: updatedUser.phone,
           birthDate: updatedUser.birthDate,
+          address: updatedUser.address,
           createdAt: updatedUser.createdAt,
           updatedAt: updatedUser.updatedAt,
         ));
@@ -390,105 +383,29 @@ class ProfileRepository {
           data: updatedUser,
         );
       } else {
-        // Jika server gagal (mungkin karena CORS), update lokal saja
-        print('Server update failed: ${response.statusCode}, updating locally...');
-
-        final currentUser = await ProfileService.getUserProfile();
-        if (currentUser != null) {
-          final updatedUser = UserProfile(
-            id: currentUser.id,
-            name: name ?? currentUser.name,
-            email: email ?? currentUser.email,
-            role: currentUser.role,
-            coins: currentUser.coins,
-            photo: currentUser.photo,
-            phone: phone ?? currentUser.phone ?? '',
-            birthDate: birthDate ?? currentUser.birthDate,
-          );
-
-          await _updateLocalProfile(updatedUser);
-
-          return ProfileResponse(
-            message: 'Profile updated locally. Server update failed.',
-            data: updatedUser,
-          );
-        } else {
-          throw Exception('No existing user profile found to update');
-        }
+        final body = json.decode(response.body);
+        final errors = body['errors'];
+        return ProfileResponse(
+          message: errors is Map
+              ? errors.values.join('\n')
+              : body['message'] ??
+                  'Gagal memperbarui profil (${response.statusCode})',
+        );
       }
     } catch (e) {
-      print('Error in updateProfile: $e');
-      // Jika server error, coba update lokal saja
-      try {
-        final currentUser = await ProfileService.getUserProfile();
-        if (currentUser != null) {
-          final updatedUser = UserProfile(
-            id: currentUser.id,
-            name: name ?? currentUser.name,
-            email: email ?? currentUser.email,
-            role: currentUser.role,
-            coins: currentUser.coins,
-            photo: currentUser.photo,
-            phone: phone ?? currentUser.phone ?? '',
-            birthDate: birthDate ?? currentUser.birthDate,
-            address: address ?? currentUser.address,  // Menambahkan parameter address
-          );
-
-          await ProfileService.saveUserProfile(User(
-            id: updatedUser.id,
-            name: updatedUser.name,
-            email: updatedUser.email,
-            role: updatedUser.role,
-            coins: updatedUser.coins,
-            photo: updatedUser.photo,
-            phone: updatedUser.phone,
-            birthDate: updatedUser.birthDate,
-            address: updatedUser.address,  // Menambahkan parameter address ke User
-            createdAt: updatedUser.createdAt,
-            updatedAt: updatedUser.updatedAt,
-          ));
-
-          return ProfileResponse(
-            message: 'Profile updated locally due to server error.',
-            data: updatedUser,
-          );
-        } else {
-          throw Exception('No existing user profile found to update');
-        }
-      } catch (localError) {
-        print('Local update also failed: $localError');
-        throw Exception('Error updating profile: $e');
-      }
+      return ProfileResponse(message: 'Gagal memperbarui profil: $e');
     }
   }
 
-  // Fungsi bantu untuk memperbarui profile di local storage
-  static Future<void> _updateLocalProfile(UserProfile updatedUser) async {
-    // Kita simpan informasi yang diperbarui ke dalam local storage
-    // Dalam implementasi sebenarnya, kamu bisa menyimpan ke shared preferences sebagai map
-    final prefs = await SharedPreferences.getInstance();
-    final userData = {
-      'id': updatedUser.id,
-      'name': updatedUser.name,
-      'email': updatedUser.email,
-      'role': updatedUser.role,
-      'coins': updatedUser.coins,
-      'photo': updatedUser.photo,
-      'phone': updatedUser.phone,
-      'birth_date': updatedUser.birthDate,
-      'address': updatedUser.address,  // Menambahkan field address ke local storage
-    };
-    await prefs.setString('user_profile', json.encode(userData));
-  }
-
   // Get donation history
-  static Future<http.Response> getDonationHistory({required String? token}) async {
+  static Future<http.Response> getDonationHistory(
+      {required String? token}) async {
     if (token == null || token.isEmpty) {
       throw Exception('Authentication token is required');
     }
 
     try {
-      return await ApiService.get('v1/donations', token: token);
+      return await ApiService.get('v1/profile/donations', token: token);
     } catch (e) {
       print('Error in getDonationHistory: $e');
       rethrow;
@@ -496,7 +413,8 @@ class ProfileRepository {
   }
 
   // Get volunteer history
-  static Future<http.Response> getVolunteerHistory({required String? token}) async {
+  static Future<http.Response> getVolunteerHistory(
+      {required String? token}) async {
     if (token == null || token.isEmpty) {
       throw Exception('Authentication token is required');
     }
@@ -510,7 +428,8 @@ class ProfileRepository {
   }
 
   // Get complete history
-  static Future<http.Response> getCompleteHistory({required String? token}) async {
+  static Future<http.Response> getCompleteHistory(
+      {required String? token}) async {
     if (token == null || token.isEmpty) {
       throw Exception('Authentication token is required');
     }

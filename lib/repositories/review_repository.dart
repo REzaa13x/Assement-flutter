@@ -1,9 +1,29 @@
 import 'dart:convert';
 import '../models/review_model.dart';
+import 'package:http/http.dart' as http;
 import '../models/testimonial_review.dart';
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
 
 class ReviewRepository {
+  static Future<http.Response> _safeSend(
+      Future<http.Response> Function() send) async {
+    try {
+      final response = await send();
+      if (json.decode(response.body) is! Map) {
+        throw const FormatException('Respons ulasan tidak valid');
+      }
+      return response;
+    } catch (_) {
+      return http.Response(
+          json.encode({
+            'message':
+                'Tidak dapat memastikan perubahan ulasan. Muat ulang daftar sebelum mencoba lagi.',
+          }),
+          503);
+    }
+  }
+
   /// Mengambil daftar ulasan dari API Laravel beserta rating summary.
   /// Menjamin ulasan yang ditampilkan adalah data nyata dari database.
   static Future<ReviewListResponse> getReviewListResponse({
@@ -14,14 +34,17 @@ class ReviewRepository {
   }) async {
     try {
       String endpoint = 'v1/reviews?page=$page&per_page=$perPage';
-      if (activityType != null && activityType.isNotEmpty && activityType != 'all') {
-        endpoint += '&activity_type=$activityType';
+      if (activityType != null &&
+          activityType.isNotEmpty &&
+          activityType != 'all') {
+        endpoint += '&activity_type=${Uri.encodeQueryComponent(activityType)}';
       }
       if (activityId != null && activityId > 0) {
         endpoint += '&activity_id=$activityId';
       }
 
-      final response = await ApiService.get(endpoint);
+      final response =
+          await ApiService.get(endpoint, token: await AuthService.getToken());
 
       if (response.statusCode == 200) {
         final decoded = json.decode(response.body);
@@ -31,7 +54,8 @@ class ReviewRepository {
               : <String, dynamic>{};
           final summary = ReviewSummary.fromJson(summaryJson);
 
-          final rawList = decoded['data'] is List ? decoded['data'] as List : [];
+          final rawList =
+              decoded['data'] is List ? decoded['data'] as List : [];
           final reviews = rawList
               .whereType<Map<String, dynamic>>()
               .map((item) => ReviewItem.fromJson(item))
@@ -44,13 +68,10 @@ class ReviewRepository {
         }
       }
     } catch (e) {
-      // Tangani kegagalan jaringan
+      rethrow;
     }
 
-    return ReviewListResponse(
-      reviews: [],
-      summary: ReviewSummary.empty(),
-    );
+    throw Exception('Gagal memuat ulasan dari server');
   }
 
   /// Backward-compatible method untuk home_page:
@@ -67,23 +88,27 @@ class ReviewRepository {
       );
 
       if (res.reviews.isNotEmpty) {
-        return res.reviews.map((r) => TestimonialReview(
-          id: r.id,
-          name: r.userName,
-          role: r.activityType == 'volunteer' ? 'Relawan Terverifikasi' : 'Donatur Terverifikasi',
-          content: r.comment,
-          avatarUrl: r.userAvatar,
-          rating: r.rating.toDouble(),
-          isSample: false,
-          campaignTitle: r.campaignTitle,
-          activityType: r.activityType,
-          isVerified: r.isVerified,
-          createdAtFormatted: r.createdAtFormatted,
-        )).toList();
+        return res.reviews
+            .map((r) => TestimonialReview(
+                  id: r.id,
+                  name: r.userName,
+                  role: r.activityType == 'volunteer'
+                      ? 'Relawan Terverifikasi'
+                      : 'Donatur Terverifikasi',
+                  content: r.comment,
+                  avatarUrl: r.userAvatar,
+                  rating: r.rating.toDouble(),
+                  isSample: false,
+                  campaignTitle: r.campaignTitle,
+                  activityType: r.activityType,
+                  isVerified: r.isVerified,
+                  createdAtFormatted: r.createdAtFormatted,
+                ))
+            .toList();
       }
     } catch (_) {}
 
-    return TestimonialReview.sampleReviews;
+    return [];
   }
 
   /// Memeriksa kelayakan pengguna untuk memberikan ulasan (Protected).
@@ -104,10 +129,10 @@ class ReviewRepository {
         }
       }
     } catch (e) {
-      // Network failure
+      rethrow;
     }
 
-    return ReviewEligibilityResult.unauthorized();
+    throw Exception('Gagal memeriksa aktivitas untuk ulasan');
   }
 
   /// Mengirimkan ulasan dan rating baru (Protected).
@@ -130,22 +155,26 @@ class ReviewRepository {
       'is_anonymous': isAnonymous,
     };
 
-    final response = await ApiService.post(
-      'v1/reviews',
-      payload,
-      token: token,
-    );
+    final response = await _safeSend(() => ApiService.post(
+          'v1/reviews',
+          payload,
+          token: token,
+        ));
 
     final decoded = json.decode(response.body);
     final String message = decoded is Map && decoded['message'] != null
         ? decoded['message'].toString()
-        : (response.statusCode == 201 ? 'Ulasan berhasil dikirim.' : 'Gagal mengirim ulasan.');
+        : (response.statusCode == 201
+            ? 'Ulasan berhasil dikirim.'
+            : 'Gagal mengirim ulasan.');
 
     return {
       'success': response.statusCode == 201,
       'statusCode': response.statusCode,
       'message': message,
-      'data': decoded is Map && decoded.containsKey('data') ? decoded['data'] : null,
+      'data': decoded is Map && decoded.containsKey('data')
+          ? decoded['data']
+          : null,
     };
   }
 
@@ -163,22 +192,26 @@ class ReviewRepository {
       if (isAnonymous != null) 'is_anonymous': isAnonymous,
     };
 
-    final response = await ApiService.put(
-      'v1/reviews/$reviewId',
-      payload,
-      token: token,
-    );
+    final response = await _safeSend(() => ApiService.put(
+          'v1/reviews/$reviewId',
+          payload,
+          token: token,
+        ));
 
     final decoded = json.decode(response.body);
     final String message = decoded is Map && decoded['message'] != null
         ? decoded['message'].toString()
-        : (response.statusCode == 200 ? 'Ulasan berhasil diperbarui.' : 'Gagal memperbarui ulasan.');
+        : (response.statusCode == 200
+            ? 'Ulasan berhasil diperbarui.'
+            : 'Gagal memperbarui ulasan.');
 
     return {
       'success': response.statusCode == 200,
       'statusCode': response.statusCode,
       'message': message,
-      'data': decoded is Map && decoded.containsKey('data') ? decoded['data'] : null,
+      'data': decoded is Map && decoded.containsKey('data')
+          ? decoded['data']
+          : null,
     };
   }
 
@@ -187,15 +220,17 @@ class ReviewRepository {
     required String token,
     required int reviewId,
   }) async {
-    final response = await ApiService.delete(
-      'v1/reviews/$reviewId',
-      token: token,
-    );
+    final response = await _safeSend(() => ApiService.delete(
+          'v1/reviews/$reviewId',
+          token: token,
+        ));
 
     final decoded = json.decode(response.body);
     final String message = decoded is Map && decoded['message'] != null
         ? decoded['message'].toString()
-        : (response.statusCode == 200 ? 'Ulasan berhasil dihapus.' : 'Gagal menghapus ulasan.');
+        : (response.statusCode == 200
+            ? 'Ulasan berhasil dihapus.'
+            : 'Gagal menghapus ulasan.');
 
     return {
       'success': response.statusCode == 200,

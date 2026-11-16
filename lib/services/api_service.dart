@@ -7,6 +7,14 @@ class ApiService {
   // Base URL from configuration
   static const String baseUrl = AppConfig.apiUrl;
 
+  static const requestTimeout = Duration(seconds: 30);
+
+  static Uri endpointUri(String endpoint) {
+    final base = baseUrl.replaceFirst(RegExp(r'/+$'), '');
+    final path = endpoint.replaceFirst(RegExp(r'^/+'), '');
+    return Uri.parse('$base/$path');
+  }
+
   // Headers for API requests
   static Map<String, String> get headers {
     return ApiHeaders.json;
@@ -14,58 +22,68 @@ class ApiService {
 
   // GET request
   static Future<http.Response> get(String endpoint, {String? token}) async {
-    final url = Uri.parse('$baseUrl/$endpoint');
+    final url = endpointUri(endpoint);
     final requestHeaders = {
       ...headers,
       if (token != null) 'Authorization': 'Bearer $token',
     };
-    final response = await http.get(url, headers: requestHeaders);
+    final response =
+        await http.get(url, headers: requestHeaders).timeout(requestTimeout);
     return response;
   }
 
   // POST request
-  static Future<http.Response> post(String endpoint, dynamic data, {String? token}) async {
-    final url = Uri.parse('$baseUrl/$endpoint');
+  static Future<http.Response> post(String endpoint, dynamic data,
+      {String? token}) async {
+    final url = endpointUri(endpoint);
     final requestHeaders = {
       ...headers,
       if (token != null) 'Authorization': 'Bearer $token',
     };
-    final response = await http.post(
-      url,
-      headers: requestHeaders,
-      body: jsonEncode(data),
-    );
+    final response = await http
+        .post(
+          url,
+          headers: requestHeaders,
+          body: jsonEncode(data),
+        )
+        .timeout(requestTimeout);
     return response;
   }
 
   // PUT request
-  static Future<http.Response> put(String endpoint, dynamic data, {String? token}) async {
-    final url = Uri.parse('$baseUrl/$endpoint');
+  static Future<http.Response> put(String endpoint, dynamic data,
+      {String? token}) async {
+    final url = endpointUri(endpoint);
     final requestHeaders = {
       ...headers,
       if (token != null) 'Authorization': 'Bearer $token',
     };
-    final response = await http.put(
-      url,
-      headers: requestHeaders,
-      body: jsonEncode(data),
-    );
+    final response = await http
+        .put(
+          url,
+          headers: requestHeaders,
+          body: jsonEncode(data),
+        )
+        .timeout(requestTimeout);
     return response;
   }
 
   // DELETE request
-  static Future<http.Response> delete(String endpoint, {String? token, dynamic data}) async {
-    final url = Uri.parse('$baseUrl/$endpoint');
+  static Future<http.Response> delete(String endpoint,
+      {String? token, dynamic data}) async {
+    final url = endpointUri(endpoint);
     final requestHeaders = {
       ...headers,
       if (token != null) 'Authorization': 'Bearer $token',
     };
-    final response = await http.delete(
-      url,
-      headers: requestHeaders,
-      // Body opsional (mis. hapus device token membutuhkan payload)
-      body: data != null ? jsonEncode(data) : null,
-    );
+    final response = await http
+        .delete(
+          url,
+          headers: requestHeaders,
+          // Body opsional (mis. hapus device token membutuhkan payload)
+          body: data != null ? jsonEncode(data) : null,
+        )
+        .timeout(requestTimeout);
     return response;
   }
 
@@ -76,7 +94,7 @@ class ApiService {
     http.MultipartFile? file,
     String? token,
   }) async {
-    final url = Uri.parse('$baseUrl/$endpoint');
+    final url = endpointUri(endpoint);
     final request = http.MultipartRequest('POST', url);
 
     // Tambahkan header
@@ -93,7 +111,8 @@ class ApiService {
       request.files.add(file);
     }
 
-    final streamedResponse = await request.send();
-    return await http.Response.fromStream(streamedResponse);
+    final streamedResponse = await request.send().timeout(requestTimeout);
+    return await http.Response.fromStream(streamedResponse)
+        .timeout(requestTimeout);
   }
 }

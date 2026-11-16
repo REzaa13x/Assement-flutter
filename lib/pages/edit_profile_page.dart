@@ -25,7 +25,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
   late TextEditingController _emailController;
   late TextEditingController _phoneController;
   late TextEditingController _birthDateController;
-  late TextEditingController _addressController; // Menambahkan controller untuk alamat
+  late TextEditingController
+      _addressController; // Menambahkan controller untuk alamat
 
   bool _isLoading = false;
 
@@ -51,19 +52,20 @@ class _EditProfilePageState extends State<EditProfilePage> {
     try {
       // Ambil token dari storage (implementasi sesuai state management kamu)
       String? token = await _getToken();
-      
+
       if (token == null) {
         throw Exception('Token tidak ditemukan. Silakan login kembali.');
       }
 
       final response = await ProfileRepository.getProfile(token: token);
-      
+
       if (response.data != null) {
         setState(() {
           _nameController.text = response.data!.name;
           _emailController.text = response.data!.email;
           _phoneController.text = response.data!.phone ?? '';
-          _addressController.text = response.data!.address ?? ''; // Menambahkan pengisian alamat domisili
+          _addressController.text = response.data!.address ??
+              ''; // Menambahkan pengisian alamat domisili
         });
       }
     } catch (e) {
@@ -104,7 +106,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
     if (picked != null) {
       setState(() {
-        _birthDateController.text = "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+        _birthDateController.text =
+            "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
       });
     }
   }
@@ -119,20 +122,24 @@ class _EditProfilePageState extends State<EditProfilePage> {
         appBar: AppBar(
           title: const Text(
             'Edit Profil',
-            style: TextStyle(color: kTextPrimary, fontWeight: FontWeight.bold, fontSize: 18),
+            style: TextStyle(
+                color: kTextPrimary, fontWeight: FontWeight.bold, fontSize: 18),
           ),
           backgroundColor: Colors.white,
           elevation: 0,
           centerTitle: true,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black, size: 20),
+            icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                color: Colors.black, size: 20),
             onPressed: () => Navigator.pop(context),
           ),
           actions: [
             // Tombol Save Text di atas (Opsional, gaya iOS)
             TextButton(
               onPressed: _isLoading ? null : _saveProfile,
-              child: const Text("Simpan", style: TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold)),
+              child: const Text("Simpan",
+                  style: TextStyle(
+                      color: kPrimaryColor, fontWeight: FontWeight.bold)),
             )
           ],
         ),
@@ -153,14 +160,17 @@ class _EditProfilePageState extends State<EditProfilePage> {
                               height: 120,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                border: Border.all(color: kBackgroundColor, width: 4),
+                                border: Border.all(
+                                    color: kBackgroundColor, width: 4),
                               ),
                               child: ClipOval(
                                 child: CachedNetworkImage(
                                   imageUrl: 'https://via.placeholder.com/150',
                                   fit: BoxFit.cover,
-                                  placeholder: (context, url) => Container(color: Colors.grey[200]),
-                                  errorWidget: (context, url, error) => const Icon(Icons.person),
+                                  placeholder: (context, url) =>
+                                      Container(color: Colors.grey[200]),
+                                  errorWidget: (context, url, error) =>
+                                      const Icon(Icons.person),
                                 ),
                               ),
                             ),
@@ -172,7 +182,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                 onTap: () {
                                   // Logika Ganti Foto (Nanti)
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text("Fitur ganti foto akan segera hadir")),
+                                    const SnackBar(
+                                        content: Text(
+                                            "Fitur ganti foto akan segera hadir")),
                                   );
                                 },
                                 child: Container(
@@ -181,9 +193,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                   decoration: BoxDecoration(
                                     color: kPrimaryColor,
                                     shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.white, width: 3),
+                                    border: Border.all(
+                                        color: Colors.white, width: 3),
                                   ),
-                                  child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 20),
+                                  child: const Icon(Icons.camera_alt_rounded,
+                                      color: Colors.white, size: 20),
                                 ),
                               ),
                             ),
@@ -199,7 +213,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         label: "Nama Lengkap",
                         icon: Icons.person_outline_rounded,
                         validator: (value) {
-                          if (value == null || value.isEmpty) return 'Nama tidak boleh kosong';
+                          if (value == null || value.isEmpty)
+                            return 'Nama tidak boleh kosong';
                           return null;
                         },
                       ),
@@ -212,7 +227,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         icon: Icons.email_outlined,
                         keyboardType: TextInputType.emailAddress,
                         validator: (value) {
-                          if (value == null || value.isEmpty || !value.contains('@')) {
+                          if (value == null ||
+                              value.isEmpty ||
+                              !value.contains('@')) {
                             return 'Masukkan email yang valid';
                           }
                           return null;
@@ -247,7 +264,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         icon: Icons.location_city_outlined,
                         maxLines: 3,
                         validator: (value) {
-                          if (value != null && value.isNotEmpty && value.length < 10) {
+                          if (value != null &&
+                              value.isNotEmpty &&
+                              value.length < 10) {
                             return 'Alamat harus lebih dari 10 karakter';
                           }
                           return null;
@@ -271,7 +290,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           ),
                           child: _isLoading
                               ? const CircularProgressIndicator(
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white),
                                 )
                               : const Text(
                                   'Simpan Perubahan',
@@ -304,7 +324,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     try {
       // Ambil token dari storage (implementasi sesuai state management kamu)
       String? token = await _getToken();
-      
+
       if (token == null) {
         throw Exception('Token tidak ditemukan. Silakan login kembali.');
       }
@@ -314,11 +334,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
         name: _nameController.text,
         email: _emailController.text,
         phone: _phoneController.text.isNotEmpty ? _phoneController.text : null,
-        birthDate: _birthDateController.text.isNotEmpty ? _birthDateController.text : null,
-        address: _addressController.text.isNotEmpty ? _addressController.text : null, // Menambahkan pengiriman alamat
+        birthDate: _birthDateController.text.isNotEmpty
+            ? _birthDateController.text
+            : null,
+        address: _addressController.text.isNotEmpty
+            ? _addressController.text
+            : null, // Menambahkan pengiriman alamat
       );
 
-      if (response.message != null && (response.message!.contains('berhasil') || response.message!.contains('sukses') || response.message!.contains('updated'))) {
+      if (response.data != null) {
         // Tampilkan pesan sukses
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -382,7 +406,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
             prefixIcon: Icon(icon, color: Colors.grey),
             filled: true,
             fillColor: kBackgroundColor, // Warna abu-abu muda lembut
-            contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+            contentPadding:
+                const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none, // Hilangkan garis border default

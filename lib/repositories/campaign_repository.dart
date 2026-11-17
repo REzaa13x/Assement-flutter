@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:http/http.dart' as http;
 import '../models/campaign.dart';
+import '../models/campaign_location.dart';
 import '../models/campaign_response.dart';
 import '../services/api_service.dart';
 
@@ -116,6 +118,11 @@ class CampaignRepository {
     String? yayasan,
     String? image,
     http.MultipartFile? imageFile,
+    CampaignLocation? location,
+    String? recipientType,
+    String? recipientDescription,
+    String? whatsapp,
+    String? distributionMethod,
     required String? token, // Token autentikasi wajib
   }) async {
     if (token == null || token.isEmpty) {
@@ -130,6 +137,12 @@ class CampaignRepository {
         'end_date': endDate,
         'kategori': kategori,
         if (yayasan != null) 'yayasan': yayasan,
+        if (recipientType != null) 'jenis_penerima': recipientType,
+        if (recipientDescription != null)
+          'recipient_description': recipientDescription,
+        if (whatsapp != null) 'whatsapp': whatsapp,
+        if (distributionMethod != null) 'penyaluran': distributionMethod,
+        if (location != null) ...location.toFields(),
         if (image != null) 'image': image,
       };
       final response = imageFile != null
@@ -149,12 +162,21 @@ class CampaignRepository {
       } else {
         final body = json.decode(response.body);
         throw Exception(body['errors'] is Map
-            ? (body['errors'] as Map).values.join('\n')
+            ? (body['errors'] as Map)
+                .values
+                .map((value) => value is List ? value.join(' ') : '$value')
+                .join('\n')
             : body['message'] ??
                 'Gagal membuat kampanye (${response.statusCode})');
       }
     } catch (e) {
-      throw Exception('Error creating campaign: $e');
+      if (e is TimeoutException ||
+          e is http.ClientException ||
+          e is FormatException) {
+        throw Exception(
+            'Respons pengajuan belum dapat dipastikan. Periksa Riwayat Kampanye sebelum mengirim ulang.');
+      }
+      rethrow;
     }
   }
 

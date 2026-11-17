@@ -23,6 +23,7 @@ class _MyCertificatesPageState extends State<MyCertificatesPage> {
 
   List<VolunteerCertificate> _certificates = [];
   CertificateMeta? _meta;
+  final Set<int> _downloadingIds = {};
   String _selectedFilter = 'all'; // 'all', 'active', 'pending'
 
   @override
@@ -44,7 +45,8 @@ class _MyCertificatesPageState extends State<MyCertificatesPage> {
         throw Exception('Anda belum login. Silakan login terlebih dahulu.');
       }
 
-      final result = await CertificateRepository.getMyCertificates(token: token);
+      final result =
+          await CertificateRepository.getMyCertificates(token: token);
 
       if (mounted) {
         setState(() {
@@ -69,11 +71,14 @@ class _MyCertificatesPageState extends State<MyCertificatesPage> {
       return _certificates.where((c) => c.isActive).toList();
     } else if (_selectedFilter == 'pending') {
       return _certificates.where((c) => c.isPending).toList();
+    } else if (_selectedFilter == 'revoked') {
+      return _certificates.where((c) => c.isRevoked).toList();
     }
     return _certificates;
   }
 
   Future<void> _handleDownloadCertificate(VolunteerCertificate cert) async {
+    if (_downloadingIds.contains(cert.id)) return;
     if (!cert.isDownloadable) {
       _showWarningSnackBar(
         'Sertifikat belum dapat diunduh. Kampanye harus selesai terlebih dahulu.',
@@ -81,6 +86,7 @@ class _MyCertificatesPageState extends State<MyCertificatesPage> {
       return;
     }
 
+    setState(() => _downloadingIds.add(cert.id));
     try {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -89,10 +95,11 @@ class _MyCertificatesPageState extends State<MyCertificatesPage> {
               SizedBox(
                 width: 18,
                 height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white),
               ),
               SizedBox(width: 12),
-              Text('Menyiapkan file sertifikat PDF...'),
+              Expanded(child: Text('Menyiapkan file sertifikat PDF...')),
             ],
           ),
           duration: Duration(seconds: 2),
@@ -101,30 +108,18 @@ class _MyCertificatesPageState extends State<MyCertificatesPage> {
       );
 
       final token = await AuthService.getToken();
-      String downloadUrl = '';
-
-      try {
-        downloadUrl = await CertificateRepository.getDownloadUrl(cert.id, token: token);
-      } catch (_) {
-        // Fallback ke direct URL jika signed URL gagal
-        downloadUrl = cert.normalizedDownloadUrl;
-      }
-
-      if (downloadUrl.isEmpty) {
-        throw Exception('URL download sertifikat tidak tersedia.');
-      }
-
-      final uri = Uri.parse(downloadUrl);
-      final canLaunch = await canLaunchUrl(uri);
-      if (canLaunch) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        await launchUrl(uri);
-      }
+      final downloadUrl =
+          await CertificateRepository.getDownloadUrl(cert.id, token: token);
+      final opened = await launchUrl(Uri.parse(downloadUrl),
+          mode: LaunchMode.externalApplication, webOnlyWindowName: '_blank');
+      if (!opened) throw Exception('Tidak dapat membuka unduhan sertifikat.');
+      if (mounted) ScaffoldMessenger.of(context).hideCurrentSnackBar();
     } catch (e) {
       if (mounted) {
         _showErrorSnackBar('Gagal mengunduh sertifikat: $e');
       }
+    } finally {
+      if (mounted) setState(() => _downloadingIds.remove(cert.id));
     }
   }
 
@@ -179,7 +174,8 @@ class _MyCertificatesPageState extends State<MyCertificatesPage> {
         elevation: 0.5,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: kTextPrimary, size: 20),
+          icon: const Icon(Icons.arrow_back_ios_new,
+              color: kTextPrimary, size: 20),
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
@@ -194,7 +190,8 @@ class _MyCertificatesPageState extends State<MyCertificatesPage> {
         onRefresh: _fetchCertificates,
         color: kPrimaryColor,
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: kPrimaryColor))
+            ? const Center(
+                child: CircularProgressIndicator(color: kPrimaryColor))
             : _hasError
                 ? _buildErrorState()
                 : _buildContent(),
@@ -219,7 +216,9 @@ class _MyCertificatesPageState extends State<MyCertificatesPage> {
         if (_filteredCertificates.isEmpty)
           _buildEmptyState()
         else
-          ..._filteredCertificates.map((cert) => _buildCertificateCard(cert)).toList(),
+          ..._filteredCertificates
+              .map((cert) => _buildCertificateCard(cert))
+              .toList(),
       ],
     );
   }
@@ -227,9 +226,12 @@ class _MyCertificatesPageState extends State<MyCertificatesPage> {
   Widget _buildContributionSummaryCard() {
     final String level = _meta?.volunteerLevel ?? 'Relawan Baru';
     final int totalCert = _meta?.total ?? _certificates.length;
-    final int activeCert = _meta?.totalActive ?? _certificates.where((c) => c.isActive).length;
+    final int activeCert =
+        _meta?.totalActive ?? _certificates.where((c) => c.isActive).length;
     final int totalHours = _meta?.totalHours ??
-        _certificates.where((c) => c.isActive).fold(0, (sum, c) => sum + c.totalVolunteerHours);
+        _certificates
+            .where((c) => c.isActive)
+            .fold(0, (sum, c) => sum + c.totalVolunteerHours);
 
     return Container(
       width: double.infinity,
@@ -255,7 +257,8 @@ class _MyCertificatesPageState extends State<MyCertificatesPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
+              Expanded(
+                  child: Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.all(10),
@@ -263,10 +266,12 @@ class _MyCertificatesPageState extends State<MyCertificatesPage> {
                       color: Colors.white.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.workspace_premium_rounded, color: Colors.white, size: 24),
+                    child: const Icon(Icons.workspace_premium_rounded,
+                        color: Colors.white, size: 24),
                   ),
                   const SizedBox(width: 12),
-                  Column(
+                  Expanded(
+                      child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
@@ -288,11 +293,13 @@ class _MyCertificatesPageState extends State<MyCertificatesPage> {
                         ),
                       ),
                     ],
-                  ),
+                  )),
                 ],
-              ),
+              )),
+              const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
@@ -304,7 +311,10 @@ class _MyCertificatesPageState extends State<MyCertificatesPage> {
                     SizedBox(width: 4),
                     Text(
                       'Resmi',
-                      style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
@@ -318,16 +328,25 @@ class _MyCertificatesPageState extends State<MyCertificatesPage> {
               color: Colors.black.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildStatItem('Total', '$totalCert', 'Sertifikat'),
-                Container(width: 1, height: 32, color: Colors.white.withValues(alpha: 0.2)),
-                _buildStatItem('Aktif', '$activeCert', 'Dapat Diunduh'),
-                Container(width: 1, height: 32, color: Colors.white.withValues(alpha: 0.2)),
-                _buildStatItem('Kontribusi', '$totalHours', 'Total Jam'),
-              ],
-            ),
+            child: LayoutBuilder(
+                builder: (context, constraints) => Wrap(
+                      spacing: 12,
+                      runSpacing: 16,
+                      children: [
+                        _buildStatItem('Total', '$totalCert', 'Sertifikat'),
+                        _buildStatItem('Aktif', '$activeCert', 'Dapat Diunduh'),
+                        _buildStatItem(
+                            'Kampanye',
+                            '${_meta?.totalCampaigns ?? _certificates.map((c) => c.campaignId).whereType<int>().toSet().length}',
+                            'Kampanye Relawan'),
+                        _buildStatItem(
+                            'Kontribusi', '$totalHours', 'Total Jam'),
+                      ]
+                          .map((item) => SizedBox(
+                              width: (constraints.maxWidth - 12) / 2,
+                              child: item))
+                          .toList(),
+                    )),
           ),
         ],
       ),
@@ -365,9 +384,14 @@ class _MyCertificatesPageState extends State<MyCertificatesPage> {
         children: [
           _buildFilterChip('all', 'Semua (${_certificates.length})'),
           const SizedBox(width: 8),
-          _buildFilterChip('active', 'Aktif (${_certificates.where((c) => c.isActive).length})'),
+          _buildFilterChip('active',
+              'Aktif (${_certificates.where((c) => c.isActive).length})'),
           const SizedBox(width: 8),
-          _buildFilterChip('pending', 'Menunggu Selesai (${_certificates.where((c) => c.isPending).length})'),
+          _buildFilterChip('pending',
+              'Menunggu Selesai (${_certificates.where((c) => c.isPending).length})'),
+          const SizedBox(width: 8),
+          _buildFilterChip('revoked',
+              'Dicabut (${_certificates.where((c) => c.isRevoked).length})'),
         ],
       ),
     );
@@ -461,7 +485,8 @@ class _MyCertificatesPageState extends State<MyCertificatesPage> {
                           color: kPrimaryColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(Icons.card_membership_rounded, color: kPrimaryColor, size: 18),
+                        child: const Icon(Icons.card_membership_rounded,
+                            color: kPrimaryColor, size: 18),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -480,7 +505,8 @@ class _MyCertificatesPageState extends State<MyCertificatesPage> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: statusBg,
                     borderRadius: BorderRadius.circular(12),
@@ -524,7 +550,8 @@ class _MyCertificatesPageState extends State<MyCertificatesPage> {
               children: [
                 _buildInfoTag(Icons.category_outlined, cert.category),
                 _buildInfoTag(Icons.location_on_outlined, cert.location),
-                _buildInfoTag(Icons.schedule, '${cert.totalVolunteerHours} Jam'),
+                _buildInfoTag(
+                    Icons.schedule, '${cert.totalVolunteerHours} Jam'),
               ],
             ),
 
@@ -532,12 +559,14 @@ class _MyCertificatesPageState extends State<MyCertificatesPage> {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(Icons.date_range_outlined, size: 13, color: kTextSecondary),
+                  const Icon(Icons.date_range_outlined,
+                      size: 13, color: kTextSecondary),
                   const SizedBox(width: 4),
-                  Text(
+                  Expanded(
+                      child: Text(
                     'Periode: ${cert.startDate ?? "-"} s/d ${cert.endDate ?? "-"}',
                     style: const TextStyle(fontSize: 11, color: kTextSecondary),
-                  ),
+                  )),
                 ],
               ),
             ],
@@ -559,12 +588,16 @@ class _MyCertificatesPageState extends State<MyCertificatesPage> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.info_outline, color: Color(0xFFD97706), size: 16),
+                    const Icon(Icons.info_outline,
+                        color: Color(0xFFD97706), size: 16),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Sertifikat resmi dapat diunduh setelah kampanye selesai dilaksanakan pada ${cert.endDate ?? "jadwal yang ditentukan"}.',
-                        style: const TextStyle(fontSize: 11, color: Color(0xFF92400E), height: 1.3),
+                        style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF92400E),
+                            height: 1.3),
                       ),
                     ),
                   ],
@@ -585,12 +618,15 @@ class _MyCertificatesPageState extends State<MyCertificatesPage> {
                       );
                     },
                     icon: const Icon(Icons.visibility_outlined, size: 16),
-                    label: const Text('Lihat Detail', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    label: const Text('Lihat Detail',
+                        style: TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.bold)),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: kPrimaryColor,
                       side: const BorderSide(color: kPrimaryColor),
                       padding: const EdgeInsets.symmetric(vertical: 11),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                 ),
@@ -599,9 +635,13 @@ class _MyCertificatesPageState extends State<MyCertificatesPage> {
                 // Tombol Unduh PDF (hanya aktif jika isDownloadable)
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: isDownloadable ? () => _handleDownloadCertificate(cert) : null,
+                    onPressed: isDownloadable
+                        ? () => _handleDownloadCertificate(cert)
+                        : null,
                     icon: const Icon(Icons.download_rounded, size: 16),
-                    label: const Text('Unduh PDF', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    label: const Text('Unduh PDF',
+                        style: TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.bold)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kPrimaryColor,
                       disabledBackgroundColor: const Color(0xFFE2E8F0),
@@ -609,7 +649,8 @@ class _MyCertificatesPageState extends State<MyCertificatesPage> {
                       disabledForegroundColor: const Color(0xFF94A3B8),
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(vertical: 11),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                 ),
@@ -629,7 +670,8 @@ class _MyCertificatesPageState extends State<MyCertificatesPage> {
         const SizedBox(width: 4),
         Text(
           label,
-          style: const TextStyle(fontSize: 12, color: kTextSecondary, fontWeight: FontWeight.w500),
+          style: const TextStyle(
+              fontSize: 12, color: kTextSecondary, fontWeight: FontWeight.w500),
         ),
       ],
     );
@@ -680,12 +722,14 @@ class _MyCertificatesPageState extends State<MyCertificatesPage> {
               Navigator.pushNamed(context, '/volunteer_campaigns');
             },
             icon: const Icon(Icons.volunteer_activism_rounded, size: 18),
-            label: const Text('Jelajahi Kegiatan Relawan', style: TextStyle(fontWeight: FontWeight.bold)),
+            label: const Text('Jelajahi Kegiatan Relawan',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             style: ElevatedButton.styleFrom(
               backgroundColor: kPrimaryColor,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
               elevation: 0,
             ),
           ),
@@ -707,16 +751,22 @@ class _MyCertificatesPageState extends State<MyCertificatesPage> {
                 color: Colors.red.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.error_outline_rounded, size: 48, color: Colors.red),
+              child: const Icon(Icons.error_outline_rounded,
+                  size: 48, color: Colors.red),
             ),
             const SizedBox(height: 16),
             const Text(
               'Gagal Memuat Sertifikat',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: kTextPrimary),
+              style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: kTextPrimary),
             ),
             const SizedBox(height: 8),
             Text(
-              _errorMessage.isNotEmpty ? _errorMessage : 'Terjadi kesalahan pada koneksi server.',
+              _errorMessage.isNotEmpty
+                  ? _errorMessage
+                  : 'Terjadi kesalahan pada koneksi server.',
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 13, color: kTextSecondary),
             ),
@@ -728,7 +778,8 @@ class _MyCertificatesPageState extends State<MyCertificatesPage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: kPrimaryColor,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ],

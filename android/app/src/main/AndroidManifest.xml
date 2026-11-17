@@ -2,6 +2,8 @@
     <!-- Izin notifikasi push (Android 13+ diminta lagi lewat runtime) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <application
         android:label="flutter_application_1"
         android:name="${applicationName}"

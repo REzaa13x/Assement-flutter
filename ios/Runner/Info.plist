@@ -2,6 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>DonGiv memakai lokasi hanya saat Anda memilih titik penerima bantuan di peta.</string>
+    <key>NSCameraUsageDescription</key>
+    <string>Ambil foto utama untuk pengajuan kampanye DonGiv.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Pilih foto utama untuk pengajuan kampanye DonGiv.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

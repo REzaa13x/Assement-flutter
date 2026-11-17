@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart' show XFile;
 import 'package:cached_network_image/cached_network_image.dart';
@@ -10,6 +11,7 @@ import '../services/profile_service.dart';
 import '../repositories/volunteer_repository.dart';
 import '../models/volunteer_campaign.dart';
 import '../config/app_config.dart';
+import 'login_page.dart';
 
 const Color kPrimaryColor = Color(0xFF2972FF);
 const Color kBackgroundColor = Color(0xFFF5F7FA);
@@ -17,13 +19,17 @@ const Color kTextPrimary = Color(0xFF1E293B);
 const Color kTextSecondary = Color(0xFF64748B);
 
 class VolunteerRegistrationFormPage extends StatefulWidget {
-  const VolunteerRegistrationFormPage({Key? key}) : super(key: key);
+  const VolunteerRegistrationFormPage({Key? key, this.pickCvFile})
+      : super(key: key);
+  final Future<PlatformFile?> Function()? pickCvFile;
 
   @override
-  State<VolunteerRegistrationFormPage> createState() => _VolunteerRegistrationFormPageState();
+  State<VolunteerRegistrationFormPage> createState() =>
+      _VolunteerRegistrationFormPageState();
 }
 
-class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFormPage> {
+class _VolunteerRegistrationFormPageState
+    extends State<VolunteerRegistrationFormPage> {
   final _formKey = GlobalKey<FormState>();
 
   final TextEditingController _addressController = TextEditingController();
@@ -41,6 +47,7 @@ class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFor
   String _userEmail = '';
   bool _isLoadingUser = true;
   bool _isSubmitting = false;
+  bool _submitted = false;
 
   // Pilihan posisi yang dilamar sesuai persis dengan website DonGiv
   final List<Map<String, String>> _positionOptions = const [
@@ -67,9 +74,13 @@ class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFor
       } else if (args is Map) {
         setState(() {
           final rawId = args['volunteer_campaign_id'];
-          _volunteerCampaignId = rawId is int ? rawId : int.tryParse(rawId?.toString() ?? '');
-          _campaignTitle = (args['volunteer_campaign_title'] ?? 'Kampanye Relawan').toString();
-          _campaignImageUrl = (args['volunteer_campaign_image'] ?? '').toString();
+          _volunteerCampaignId =
+              rawId is int ? rawId : int.tryParse(rawId?.toString() ?? '');
+          _campaignTitle =
+              (args['volunteer_campaign_title'] ?? 'Kampanye Relawan')
+                  .toString();
+          _campaignImageUrl =
+              (args['volunteer_campaign_image'] ?? '').toString();
 
           if (args['campaign'] is VolunteerCampaign) {
             final VolunteerCampaign c = args['campaign'];
@@ -92,6 +103,7 @@ class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFor
   Future<void> _loadUserData() async {
     try {
       final userData = await AuthService.getUserData();
+      if (!mounted) return;
       if (userData != null) {
         setState(() {
           _userName = userData['name']?.toString() ?? '';
@@ -102,6 +114,7 @@ class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFor
       }
 
       final profile = await ProfileService.getUserProfile();
+      if (!mounted) return;
       if (profile != null) {
         setState(() {
           _userName = profile.name;
@@ -135,28 +148,36 @@ class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFor
   }
 
   Future<void> _pickCvFile() async {
+    if (_isSubmitting || _submitted) return;
     try {
-      final FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf'],
-        withData: true,
-      );
+      final PlatformFile? file;
+      if (widget.pickCvFile != null) {
+        file = await widget.pickCvFile!();
+      } else {
+        final FilePickerResult? result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['pdf'],
+          withData: true,
+        );
 
-      if (result == null || result.files.isEmpty) return;
-
-      final PlatformFile file = result.files.first;
+        file =
+            result == null || result.files.isEmpty ? null : result.files.first;
+      }
+      if (!mounted || file == null) return;
       final String fileName = file.name.toLowerCase();
       final int size = file.size;
 
       // Validasi ekstensi PDF
       if (!fileName.endsWith('.pdf')) {
-        _showErrorSnackBar('Format file tidak didukung! Hanya menerima file PDF.');
+        _showErrorSnackBar(
+            'Format file tidak didukung! Hanya menerima file PDF.');
         return;
       }
 
       // Validasi batas ukuran maksimum 2 MB (2 * 1024 * 1024 bytes)
       if (size > 2 * 1024 * 1024) {
-        _showErrorSnackBar('Ukuran file melebihi batas! Maksimal ukuran file 2 MB.');
+        _showErrorSnackBar(
+            'Ukuran file melebihi batas! Maksimal ukuran file 2 MB.');
         return;
       }
 
@@ -170,6 +191,7 @@ class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFor
   }
 
   void _removeCvFile() {
+    if (_isSubmitting || _submitted) return;
     setState(() {
       _selectedCvFile = null;
       _selectedCvFileSize = null;
@@ -200,6 +222,8 @@ class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFor
   }
 
   Future<void> _submitForm() async {
+    if (_isSubmitting || _submitted) return;
+    FocusScope.of(context).unfocus();
     // 1. Validasi form dasar (alamat & motivasi)
     final formValid = _formKey.currentState?.validate() ?? false;
 
@@ -225,18 +249,22 @@ class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFor
       return;
     }
 
-    // Cek token autentikasi
-    final token = await AuthService.getToken();
-    if (token == null || token.isEmpty) {
-      _showErrorSnackBar('Anda harus login terlebih dahulu.');
-      return;
-    }
-
     setState(() {
       _isSubmitting = true;
     });
 
     try {
+      var token = await AuthService.getToken();
+      if (!mounted) return;
+      if (token == null || token.isEmpty) {
+        final loggedIn = await Navigator.of(context).push<bool>(
+          MaterialPageRoute(builder: (_) => const LoginPage(returnToPreviousPage: true)),
+        );
+        if (!mounted || loggedIn != true) return;
+        await _loadUserData();
+        token = await AuthService.getToken();
+        if (!mounted || token == null || token.isEmpty) return;
+      }
       Uint8List? cvBytes = _selectedCvFile!.bytes;
       if (cvBytes == null && _selectedCvFile!.path != null) {
         cvBytes = await XFile(_selectedCvFile!.path!).readAsBytes();
@@ -254,6 +282,7 @@ class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFor
         'cv',
         cvBytes,
         filename: _selectedCvFile!.name,
+        contentType: MediaType('application', 'pdf'),
       );
 
       final response = await VolunteerRepository.applyToVolunteerCampaignRaw(
@@ -268,17 +297,22 @@ class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFor
       if (!mounted) return;
 
       if (response.statusCode == 200 || response.statusCode == 201) {
+        setState(() {
+          _submitted = true;
+          _isSubmitting = false;
+        });
         // Berhasil mendaftar
         showDialog(
           context: context,
           barrierDismissible: false,
           builder: (ctx) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             title: Row(
               children: const [
                 Icon(Icons.check_circle_rounded, color: Colors.green, size: 28),
                 SizedBox(width: 10),
-                Text('Pendaftaran Berhasil!'),
+                Expanded(child: Text('Pendaftaran Berhasil!')),
               ],
             ),
             content: const Text(
@@ -289,19 +323,36 @@ class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFor
               TextButton(
                 onPressed: () {
                   Navigator.of(ctx).pop(); // Tutup dialog
-                  Navigator.of(context).pop(true); // Kembali ke halaman sebelumnya
+                  Navigator.of(context)
+                      .pop(true); // Kembali ke halaman sebelumnya
                 },
                 child: const Text(
                   'OK',
-                  style: TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold, fontSize: 16),
+                  style: TextStyle(
+                      color: kPrimaryColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16),
                 ),
               ),
             ],
           ),
         );
+      } else if (response.statusCode == 401) {
+        await AuthService.removeToken();
+        if (!mounted) return;
+        final loggedIn = await Navigator.of(context).push<bool>(
+          MaterialPageRoute(builder: (_) => const LoginPage(returnToPreviousPage: true)),
+        );
+        if (!mounted) return;
+        if (loggedIn == true) {
+          await _loadUserData();
+          if (!mounted) return;
+          _showErrorSnackBar('Login berhasil. Silakan kirim kembali pendaftaran Anda.');
+        }
       } else {
         // Tampilkan pesan kesalahan dari backend
-        String errorMessage = 'Gagal mengirim pendaftaran (Kode ${response.statusCode})';
+        String errorMessage =
+            'Gagal mengirim pendaftaran (Kode ${response.statusCode})';
         try {
           final decoded = jsonDecode(response.body);
           if (decoded is Map) {
@@ -353,7 +404,8 @@ class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFor
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded,
+              color: Colors.white, size: 20),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -400,23 +452,25 @@ class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFor
                           children: [
                             Row(
                               children: const [
-                                Icon(Icons.volunteer_activism_rounded, color: Colors.white70, size: 18),
+                                Icon(Icons.volunteer_activism_rounded,
+                                    color: Colors.white70, size: 18),
                                 SizedBox(width: 8),
-                                Text(
+                                Expanded(child: Text(
                                   'Anda mendaftar untuk program:',
                                   style: TextStyle(
                                     color: Colors.white70,
                                     fontSize: 13,
                                     fontWeight: FontWeight.w500,
                                   ),
-                                ),
+                                )),
                               ],
                             ),
                             const SizedBox(height: 6),
                             Text(
                               _campaignTitle,
                               style: const TextStyle(
-                                color: Color(0xFFFDE047), // Aksen kuning khas DonGiv
+                                color: Color(
+                                    0xFFFDE047), // Aksen kuning khas DonGiv
                                 fontSize: 17,
                                 fontWeight: FontWeight.bold,
                                 height: 1.3,
@@ -436,12 +490,14 @@ class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFor
                             imageUrl: normalizedImageUrl,
                             fit: BoxFit.cover,
                             placeholder: (context, url) => const Center(
-                              child: CircularProgressIndicator(color: kPrimaryColor, strokeWidth: 2),
+                              child: CircularProgressIndicator(
+                                  color: kPrimaryColor, strokeWidth: 2),
                             ),
                             errorWidget: (context, url, error) => Container(
                               color: Colors.grey[100],
                               child: const Center(
-                                child: Icon(Icons.image_not_supported_rounded, color: Colors.grey, size: 40),
+                                child: Icon(Icons.image_not_supported_rounded,
+                                    color: Colors.grey, size: 40),
                               ),
                             ),
                           ),
@@ -469,7 +525,8 @@ class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFor
                           color: Color(0xFFDBEAFE),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.person_rounded, color: kPrimaryColor, size: 24),
+                        child: const Icon(Icons.person_rounded,
+                            color: kPrimaryColor, size: 24),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -490,13 +547,17 @@ class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFor
                                 ? const SizedBox(
                                     height: 16,
                                     width: 120,
-                                    child: LinearProgressIndicator(color: kPrimaryColor),
+                                    child: LinearProgressIndicator(
+                                        color: kPrimaryColor),
                                   )
                                 : Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        _userName.isNotEmpty ? _userName : 'Nama Pengguna',
+                                        _userName.isNotEmpty
+                                            ? _userName
+                                            : 'Nama Pengguna',
                                         style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 15,
@@ -505,7 +566,9 @@ class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFor
                                       ),
                                       const SizedBox(height: 2),
                                       Text(
-                                        _userEmail.isNotEmpty ? _userEmail : 'email@example.com',
+                                        _userEmail.isNotEmpty
+                                            ? _userEmail
+                                            : 'email@example.com',
                                         style: const TextStyle(
                                           fontSize: 13,
                                           color: kTextSecondary,
@@ -528,12 +591,15 @@ class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFor
                 _buildFieldLabel('Posisi yang Dilamar'),
                 Container(
                   margin: const EdgeInsets.only(top: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: _selectedPosition == null ? Colors.grey.shade300 : kPrimaryColor,
+                      color: _selectedPosition == null
+                          ? Colors.grey.shade300
+                          : kPrimaryColor,
                       width: 1.2,
                     ),
                   ),
@@ -543,15 +609,20 @@ class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFor
                       value: _selectedPosition,
                       hint: const Text(
                         'Pilih posisi...',
-                        style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+                        style:
+                            TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
                       ),
-                      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF64748B)),
+                      icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                          color: Color(0xFF64748B)),
                       items: _positionOptions.map((opt) {
                         return DropdownMenuItem<String>(
                           value: opt['value'],
                           child: Text(
                             opt['label']!,
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kTextPrimary),
+                            style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: kTextPrimary),
                           ),
                         );
                       }).toList(),
@@ -572,10 +643,14 @@ class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFor
                 TextFormField(
                   controller: _addressController,
                   maxLines: 3,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextPrimary),
+                  style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: kTextPrimary),
                   decoration: InputDecoration(
                     hintText: 'Jalan, Kelurahan, Kota...',
-                    hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+                    hintStyle:
+                        const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
                     filled: true,
                     fillColor: Colors.white,
                     contentPadding: const EdgeInsets.all(16),
@@ -589,11 +664,13 @@ class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFor
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: kPrimaryColor, width: 1.5),
+                      borderSide:
+                          const BorderSide(color: kPrimaryColor, width: 1.5),
                     ),
                     errorBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+                      borderSide:
+                          const BorderSide(color: Colors.redAccent, width: 1.5),
                     ),
                   ),
                   validator: (value) {
@@ -616,10 +693,15 @@ class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFor
                   controller: _motivationController,
                   maxLines: 5,
                   onChanged: (text) => setState(() {}),
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: kTextPrimary),
+                  style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: kTextPrimary),
                   decoration: InputDecoration(
-                    hintText: 'Ceritakan motivasi dan pengalaman relevan Anda...',
-                    hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+                    hintText:
+                        'Ceritakan motivasi dan pengalaman relevan Anda...',
+                    hintStyle:
+                        const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
                     filled: true,
                     fillColor: Colors.white,
                     contentPadding: const EdgeInsets.all(16),
@@ -633,11 +715,13 @@ class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFor
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: kPrimaryColor, width: 1.5),
+                      borderSide:
+                          const BorderSide(color: kPrimaryColor, width: 1.5),
                     ),
                     errorBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+                      borderSide:
+                          const BorderSide(color: Colors.redAccent, width: 1.5),
                     ),
                   ),
                   validator: (value) {
@@ -652,19 +736,23 @@ class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFor
                 ),
                 Padding(
                   padding: const EdgeInsets.only(top: 6, left: 4, right: 4),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  child: Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: 12,
                     children: [
                       const Text(
                         'Minimal 20 karakter.',
-                        style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                        style:
+                            TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
                       ),
                       Text(
                         '$motivationLength karakter',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: motivationLength >= 20 ? Colors.green[600] : const Color(0xFF94A3B8),
+                          color: motivationLength >= 20
+                              ? Colors.green[600]
+                              : const Color(0xFF94A3B8),
                         ),
                       ),
                     ],
@@ -684,11 +772,13 @@ class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFor
                     borderRadius: BorderRadius.circular(16),
                     child: Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 28, horizontal: 20),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.grey.shade300, width: 1.5),
+                        border:
+                            Border.all(color: Colors.grey.shade300, width: 1.5),
                       ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -777,7 +867,8 @@ class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFor
                               if (_selectedCvFileSize != null)
                                 Text(
                                   _formatFileSize(_selectedCvFileSize!),
-                                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                                  style: const TextStyle(
+                                      fontSize: 12, color: Color(0xFF64748B)),
                                 ),
                             ],
                           ),
@@ -785,12 +876,14 @@ class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFor
                         // Tombol Ganti / Hapus
                         IconButton(
                           tooltip: 'Ganti File',
-                          icon: const Icon(Icons.sync_rounded, color: kPrimaryColor),
+                          icon: const Icon(Icons.sync_rounded,
+                              color: kPrimaryColor),
                           onPressed: _pickCvFile,
                         ),
                         IconButton(
                           tooltip: 'Hapus File',
-                          icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                          icon: const Icon(Icons.delete_outline_rounded,
+                              color: Colors.redAccent),
                           onPressed: _removeCvFile,
                         ),
                       ],
@@ -804,7 +897,7 @@ class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFor
                   width: double.infinity,
                   height: 54,
                   child: ElevatedButton(
-                    onPressed: _isSubmitting ? null : _submitForm,
+                    onPressed: _isSubmitting || _submitted ? null : _submitForm,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kPrimaryColor,
                       disabledBackgroundColor: kPrimaryColor.withOpacity(0.6),
@@ -827,27 +920,27 @@ class _VolunteerRegistrationFormPageState extends State<VolunteerRegistrationFor
                                 ),
                               ),
                               SizedBox(width: 12),
-                              Text(
+                              Flexible(child: Text(
                                 'Sedang Mengirim...',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                 ),
-                              ),
+                              )),
                             ],
                           )
                         : Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: const [
-                              Text(
+                              Flexible(child: Text(
                                 'Kirim Pendaftaran',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                 ),
-                              ),
+                              )),
                               SizedBox(width: 8),
                               Icon(Icons.send_rounded, size: 18),
                             ],

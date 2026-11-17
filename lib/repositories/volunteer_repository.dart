@@ -103,13 +103,6 @@ class VolunteerRepository {
     }
 
     try {
-      print('Making multipart request to: v1/volunteer-applications');
-      print('Sending data:');
-      print('  volunteer_campaign_id: $volunteerCampaignId');
-      print('  posisi_dilamar: $posisiDilamar');
-      print('  alamat: $alamat');
-      print('  alasan_bergabung: $alasanBergabung');
-      print('  has_cv: ${cvFile != null}');
 
       final Map<String, String> fields = {
         'volunteer_campaign_id': volunteerCampaignId.toString(),
@@ -131,9 +124,6 @@ class VolunteerRepository {
         file: cvFile,
         token: token,
       );
-
-      print('Apply to volunteer response status: ${response.statusCode}');
-      print('Apply to volunteer response body: ${response.body}');
 
       return response;
     } catch (e) {

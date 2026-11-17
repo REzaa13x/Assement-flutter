@@ -24,6 +24,7 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
   VolunteerCertificate? _certificate;
   bool _isLoading = false;
   bool _isDownloading = false;
+  bool _isVerifying = false;
   String _errorMessage = '';
 
   @override
@@ -32,6 +33,11 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
     _certificate = widget.certificate;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_certificate != null) {
+        _fetchDetail(_certificate!.id);
+        return;
+      }
       if (_certificate == null) {
         final args = ModalRoute.of(context)?.settings.arguments;
         if (args is VolunteerCertificate) {
@@ -41,7 +47,9 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
         } else if (args is int) {
           _fetchDetail(args);
         } else if (args is Map && args['id'] != null) {
-          final int id = args['id'] is int ? args['id'] : int.tryParse(args['id'].toString()) ?? 0;
+          final int id = args['id'] is int
+              ? args['id']
+              : int.tryParse(args['id'].toString()) ?? 0;
           _fetchDetail(id);
         }
       }
@@ -56,7 +64,8 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
 
     try {
       final token = await AuthService.getToken();
-      final detail = await CertificateRepository.getCertificateDetail(id, token: token);
+      final detail =
+          await CertificateRepository.getCertificateDetail(id, token: token);
       if (mounted) {
         setState(() {
           _certificate = detail;
@@ -75,10 +84,11 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
 
   Future<void> _handleDownloadPdf() async {
     final cert = _certificate;
-    if (cert == null) return;
+    if (cert == null || _isDownloading) return;
 
     if (!cert.isDownloadable) {
-      _showWarningSnackBar('Sertifikat belum dapat diunduh. Kampanye harus selesai terlebih dahulu.');
+      _showWarningSnackBar(
+          'Sertifikat belum dapat diunduh. Kampanye harus selesai terlebih dahulu.');
       return;
     }
 
@@ -88,26 +98,11 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
 
     try {
       final token = await AuthService.getToken();
-      String downloadUrl = '';
-
-      try {
-        downloadUrl = await CertificateRepository.getDownloadUrl(cert.id, token: token);
-      } catch (_) {
-        downloadUrl = cert.normalizedDownloadUrl;
-      }
-
-      if (downloadUrl.isEmpty) {
-        throw Exception('URL unduhan sertifikat tidak tersedia.');
-      }
-
-      final uri = Uri.parse(downloadUrl);
-      final canLaunch = await canLaunchUrl(uri);
-      if (canLaunch) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        await launchUrl(uri);
-      }
-
+      final downloadUrl =
+          await CertificateRepository.getDownloadUrl(cert.id, token: token);
+      final opened = await launchUrl(Uri.parse(downloadUrl),
+          mode: LaunchMode.externalApplication, webOnlyWindowName: '_blank');
+      if (!opened) throw Exception('Tidak dapat membuka unduhan sertifikat.');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -115,7 +110,7 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
               children: [
                 Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
                 SizedBox(width: 10),
-                Text('Membuka unduhan file sertifikat PDF...'),
+                Expanded(child: Text('Membuka unduhan file sertifikat PDF...')),
               ],
             ),
             backgroundColor: Color(0xFF16A34A),
@@ -136,65 +131,86 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
     }
   }
 
-  void _showVerificationDialog(VolunteerCertificate cert) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Icon(
-              cert.isActive ? Icons.verified_rounded : Icons.access_time_filled_rounded,
-              color: cert.isActive ? const Color(0xFF16A34A) : const Color(0xFFD97706),
-              size: 26,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                cert.isActive ? 'Sertifikat Valid' : 'Sertifikat Ditangguhkan',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'No. Sertifikat: ${cert.certificateNumber}',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: kPrimaryColor),
-            ),
-            const SizedBox(height: 8),
-            Text('Nama Relawan: ${cert.volunteerName}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 4),
-            Text('Kegiatan: ${cert.campaignName}', style: const TextStyle(fontSize: 13)),
-            const SizedBox(height: 4),
-            Text(
-              'Status: ${cert.statusLabel}',
-              style: TextStyle(
-                fontSize: 13,
-                color: cert.isActive ? const Color(0xFF16A34A) : const Color(0xFFD97706),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              cert.isActive
-                  ? 'Sertifikat ini sah dan terverifikasi secara resmi oleh DonGiv.'
-                  : 'Sertifikat ini berstatus ${cert.statusLabel} dan akan aktif otomatis setelah kampanye selesai dilaksanakan.',
-              style: const TextStyle(fontSize: 12, color: kTextSecondary, height: 1.4),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Tutup', style: TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
+  Future<void> _showVerificationDialog(VolunteerCertificate cert) async {
+    if (_isVerifying) return;
+    setState(() => _isVerifying = true);
+    final Map<String, dynamic> result;
+    try {
+      result =
+          await CertificateRepository.verifyCertificate(cert.certificateNumber);
+    } catch (_) {
+      if (mounted) {
+        _showErrorSnackBar(
+            'Gagal memverifikasi sertifikat. Silakan coba lagi.');
+      }
+      return;
+    } finally {
+      if (mounted) setState(() => _isVerifying = false);
+    }
+    if (!mounted) return;
+    final valid = result['is_valid'] == true;
+    final data = result['data'] is Map ? result['data'] as Map : const {};
+    final status = data['status']?.toString() ?? '';
+    final title = valid
+        ? 'Sertifikat Valid'
+        : status == 'revoked'
+            ? 'Sertifikat Dicabut'
+            : 'Sertifikat Belum Valid';
+    await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+              title: Text(title),
+              content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('No. Sertifikat: ${cert.certificateNumber}',
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    Text(result['message']?.toString() ??
+                        'Data sertifikat tidak tersedia.'),
+                    if (data.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                          'Relawan: ${data['volunteer_name'] ?? cert.volunteerName}'),
+                      Text(
+                          'Kegiatan: ${data['campaign_name'] ?? cert.campaignName}'),
+                      Text('Status: ${data['status_label'] ?? status}'),
+                    ],
+                  ]),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Tutup'))
+              ],
+            ));
+  }
+
+  Future<void> _shareCertificate(
+      VolunteerCertificate cert, String platform) async {
+    final verificationUrl = cert.normalizedVerifyUrl;
+    if (verificationUrl.isEmpty) {
+      _showErrorSnackBar('Tautan verifikasi belum tersedia.');
+      return;
+    }
+    final text = 'Sertifikat kegiatan relawan "${cert.campaignName}" di DonGiv';
+    final uri = platform == 'whatsapp'
+        ? Uri.https(
+            'api.whatsapp.com', '/send', {'text': '$text $verificationUrl'})
+        : Uri.https('www.linkedin.com', '/shareArticle',
+            {'mini': 'true', 'url': verificationUrl, 'title': text});
+    try {
+      if (!await launchUrl(uri,
+          mode: LaunchMode.externalApplication, webOnlyWindowName: '_blank')) {
+        throw Exception('Aplikasi tujuan tidak tersedia.');
+      }
+    } catch (_) {
+      if (mounted) {
+        _showErrorSnackBar('Tidak dapat membuka tautan berbagi sertifikat.');
+      }
+    }
   }
 
   void _showErrorSnackBar(String message) {
@@ -250,7 +266,8 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
         elevation: 0.5,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: kTextPrimary, size: 20),
+          icon: const Icon(Icons.arrow_back_ios_new,
+              color: kTextPrimary, size: 20),
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
@@ -258,7 +275,8 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
             IconButton(
               icon: const Icon(Icons.verified_outlined, color: kPrimaryColor),
               tooltip: 'Status Verifikasi',
-              onPressed: () => _showVerificationDialog(cert),
+              onPressed:
+                  _isVerifying ? null : () => _showVerificationDialog(cert),
             ),
         ],
       ),
@@ -267,7 +285,8 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
           : _errorMessage.isNotEmpty
               ? _buildErrorState()
               : cert == null
-                  ? const Center(child: Text('Data sertifikat tidak ditemukan.'))
+                  ? const Center(
+                      child: Text('Data sertifikat tidak ditemukan.'))
                   : _buildDetailContent(cert),
     );
   }
@@ -315,7 +334,7 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
       borderColor = const Color(0xFFFDE68A);
       textColor = const Color(0xFFB45309);
       icon = Icons.access_time_filled_rounded;
-      statusTitle = 'Sertifikat Ditangguhkan';
+      statusTitle = 'Menunggu Kampanye Selesai';
       description =
           'Sertifikat ini berstatus ${cert.statusLabel} dan dapat diunduh dalam format PDF setelah kampanye selesai dilaksanakan pada ${cert.endDate ?? "jadwal yang ditentukan"}.';
     } else {
@@ -324,7 +343,8 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
       textColor = const Color(0xFFB91C1C);
       icon = Icons.cancel_rounded;
       statusTitle = 'Sertifikat Dicabut';
-      description = 'Sertifikat ini telah dicabut dan tidak lagi berlaku sebagai portofolio resmi.';
+      description =
+          'Sertifikat ini telah dicabut dan tidak lagi berlaku sebagai portofolio resmi.';
     }
 
     return Container(
@@ -420,7 +440,8 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: kGoldColor.withValues(alpha: 0.4), width: 1.5),
+                    border: Border.all(
+                        color: kGoldColor.withValues(alpha: 0.4), width: 1.5),
                   ),
                   child: Column(
                     children: [
@@ -460,12 +481,19 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Container(width: 32, height: 1, color: kGoldColor.withValues(alpha: 0.6)),
+                          Container(
+                              width: 32,
+                              height: 1,
+                              color: kGoldColor.withValues(alpha: 0.6)),
                           const Padding(
                             padding: EdgeInsets.symmetric(horizontal: 8.0),
-                            child: Icon(Icons.star, color: kGoldColor, size: 14),
+                            child:
+                                Icon(Icons.star, color: kGoldColor, size: 14),
                           ),
-                          Container(width: 32, height: 1, color: kGoldColor.withValues(alpha: 0.6)),
+                          Container(
+                              width: 32,
+                              height: 1,
+                              color: kGoldColor.withValues(alpha: 0.6)),
                         ],
                       ),
                       const SizedBox(height: 12),
@@ -560,19 +588,30 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
                           children: [
                             Row(
                               children: [
-                                Expanded(child: _buildCertDetailItem('Kategori', cert.category)),
-                                Expanded(child: _buildCertDetailItem('Lokasi', cert.location)),
+                                Expanded(
+                                    child: _buildCertDetailItem(
+                                        'Kategori', cert.category)),
+                                Expanded(
+                                    child: _buildCertDetailItem(
+                                        'Lokasi', cert.location)),
                               ],
                             ),
                             const Divider(height: 16, color: Color(0xFFE2E8F0)),
                             Row(
                               children: [
-                                Expanded(child: _buildCertDetailItem('Tingkat Relawan', cert.volunteerLevel)),
-                                Expanded(child: _buildCertDetailItem('Jam Relawan', '${cert.totalVolunteerHours} Jam')),
+                                Expanded(
+                                    child: _buildCertDetailItem(
+                                        'Tingkat Relawan',
+                                        cert.volunteerLevel)),
+                                Expanded(
+                                    child: _buildCertDetailItem('Jam Relawan',
+                                        '${cert.totalVolunteerHours} Jam')),
                               ],
                             ),
-                            if (cert.startDate != null || cert.endDate != null) ...[
-                              const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                            if (cert.startDate != null ||
+                                cert.endDate != null) ...[
+                              const Divider(
+                                  height: 16, color: Color(0xFFE2E8F0)),
                               Row(
                                 children: [
                                   Expanded(
@@ -582,7 +621,8 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
                                     ),
                                   ),
                                   Expanded(
-                                    child: _buildCertDetailItem('Penyelenggara', cert.organizerName),
+                                    child: _buildCertDetailItem(
+                                        'Penyelenggara', cert.organizerName),
                                   ),
                                 ],
                               ),
@@ -613,7 +653,8 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
                                 ),
                                 const SizedBox(height: 2),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 3),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFEFF6FF),
                                     borderRadius: BorderRadius.circular(6),
@@ -631,7 +672,8 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
                                 const SizedBox(height: 4),
                                 Text(
                                   'Diterbitkan: ${cert.issueDate ?? "-"}',
-                                  style: const TextStyle(fontSize: 10, color: kTextSecondary),
+                                  style: const TextStyle(
+                                      fontSize: 10, color: kTextSecondary),
                                 ),
                               ],
                             ),
@@ -650,19 +692,23 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
                                     decoration: BoxDecoration(
                                       color: Colors.white,
                                       borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                                      border: Border.all(
+                                          color: const Color(0xFFCBD5E1)),
                                     ),
                                     child: CachedNetworkImage(
                                       imageUrl: cert.normalizedQrCode,
                                       fit: BoxFit.contain,
-                                      placeholder: (context, url) => const Center(
+                                      placeholder: (context, url) =>
+                                          const Center(
                                         child: SizedBox(
                                           width: 14,
                                           height: 14,
-                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                          child: CircularProgressIndicator(
+                                              strokeWidth: 2),
                                         ),
                                       ),
-                                      errorWidget: (context, url, error) => const Icon(
+                                      errorWidget: (context, url, error) =>
+                                          const Icon(
                                         Icons.qr_code,
                                         size: 32,
                                         color: kPrimaryColor,
@@ -672,7 +718,10 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
                                   const SizedBox(height: 2),
                                   const Text(
                                     'Pindai Verifikasi',
-                                    style: TextStyle(fontSize: 8, color: kTextSecondary, fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                        fontSize: 8,
+                                        color: kTextSecondary,
+                                        fontWeight: FontWeight.bold),
                                   ),
                                 ],
                               ),
@@ -684,7 +733,10 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                Container(width: 80, height: 1, color: const Color(0xFF94A3B8)),
+                                Container(
+                                    width: 80,
+                                    height: 1,
+                                    color: const Color(0xFF94A3B8)),
                                 const SizedBox(height: 4),
                                 const Text(
                                   'Tim Verifikasi',
@@ -696,7 +748,8 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
                                 ),
                                 const Text(
                                   'DonGiv Platform',
-                                  style: TextStyle(fontSize: 9, color: kTextSecondary),
+                                  style: TextStyle(
+                                      fontSize: 9, color: kTextSecondary),
                                 ),
                               ],
                             ),
@@ -756,16 +809,18 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
         children: [
           const Row(
             children: [
-              Icon(Icons.download_for_offline_rounded, color: kPrimaryColor, size: 20),
+              Icon(Icons.download_for_offline_rounded,
+                  color: kPrimaryColor, size: 20),
               SizedBox(width: 8),
-              Text(
+              Expanded(
+                  child: Text(
                 'Unduh & Portofolio Sertifikat',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
                   color: kTextPrimary,
                 ),
-              ),
+              )),
             ],
           ),
           const SizedBox(height: 8),
@@ -773,7 +828,8 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
             isDownloadable
                 ? 'Berkas PDF resmi dapat disimpan dan digunakan sebagai bukti portofolio kegiatan relawan Anda.'
                 : 'Tombol unduh akan aktif setelah seluruh rangkaian kegiatan relawan selesai dilaksanakan.',
-            style: const TextStyle(fontSize: 12, color: kTextSecondary, height: 1.4),
+            style: const TextStyle(
+                fontSize: 12, color: kTextSecondary, height: 1.4),
           ),
           const SizedBox(height: 18),
 
@@ -782,26 +838,33 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
             width: double.infinity,
             height: 50,
             child: ElevatedButton.icon(
-              onPressed: (isDownloadable && !_isDownloading) ? _handleDownloadPdf : null,
+              onPressed: (isDownloadable && !_isDownloading)
+                  ? _handleDownloadPdf
+                  : null,
               icon: _isDownloading
                   ? const SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
                     )
                   : const Icon(Icons.picture_as_pdf_rounded, size: 20),
               label: Text(
                 _isDownloading
                     ? 'Mengunduh Sertifikat...'
-                    : (isDownloadable ? 'Unduh PDF Resmi' : 'Unduhan Belum Tersedia'),
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                    : (isDownloadable
+                        ? 'Unduh PDF Resmi'
+                        : 'Unduhan Belum Tersedia'),
+                style:
+                    const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: kPrimaryColor,
                 disabledBackgroundColor: const Color(0xFFE2E8F0),
                 foregroundColor: Colors.white,
                 disabledForegroundColor: const Color(0xFF94A3B8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
                 elevation: 0,
               ),
             ),
@@ -813,7 +876,8 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
             width: double.infinity,
             height: 48,
             child: OutlinedButton.icon(
-              onPressed: () => _showVerificationDialog(cert),
+              onPressed:
+                  _isVerifying ? null : () => _showVerificationDialog(cert),
               icon: const Icon(Icons.verified_outlined, size: 18),
               label: const Text(
                 'Lihat Status Verifikasi',
@@ -822,12 +886,24 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
               style: OutlinedButton.styleFrom(
                 foregroundColor: kPrimaryColor,
                 side: const BorderSide(color: kPrimaryColor),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
               ),
             ),
           ),
           const SizedBox(height: 12),
 
+          Wrap(spacing: 10, runSpacing: 8, children: [
+            OutlinedButton.icon(
+                onPressed: () => _shareCertificate(cert, 'whatsapp'),
+                icon: const Icon(Icons.share_outlined, size: 18),
+                label: const Text('WhatsApp')),
+            OutlinedButton.icon(
+                onPressed: () => _shareCertificate(cert, 'linkedin'),
+                icon: const Icon(Icons.work_outline, size: 18),
+                label: const Text('LinkedIn')),
+          ]),
+          const SizedBox(height: 12),
           // Tombol "Ke Beranda" (Arahkan pengguna ke Home utama aplikasi Flutter DonGiv)
           SizedBox(
             width: double.infinity,
@@ -835,7 +911,8 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
             child: ElevatedButton.icon(
               onPressed: () {
                 // Arahkan pengguna ke halaman Home utama aplikasi Flutter DonGiv tanpa menumpuk halaman
-                Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+                Navigator.pushNamedAndRemoveUntil(
+                    context, '/', (route) => false);
               },
               icon: const Icon(Icons.home_rounded, size: 20),
               label: const Text(
@@ -845,7 +922,8 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0F172A), // Dark slate premium
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
                 elevation: 0,
               ),
             ),
@@ -865,7 +943,8 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
               ),
               style: TextButton.styleFrom(
                 foregroundColor: kTextSecondary,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
               ),
             ),
           ),

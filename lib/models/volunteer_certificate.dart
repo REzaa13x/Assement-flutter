@@ -4,6 +4,7 @@ class CertificateMeta {
   final int total;
   final int totalActive;
   final int totalHours;
+  final int totalCampaigns;
   final String volunteerLevel;
 
   CertificateMeta({
@@ -11,11 +12,15 @@ class CertificateMeta {
     required this.totalActive,
     required this.totalHours,
     required this.volunteerLevel,
+    this.totalCampaigns = 0,
   });
 
   factory CertificateMeta.fromJson(Map<String, dynamic> json) {
     return CertificateMeta(
-      total: json['total'] is int ? json['total'] : int.tryParse(json['total']?.toString() ?? '0') ?? 0,
+      totalCampaigns: int.tryParse('${json['total_campaigns'] ?? 0}') ?? 0,
+      total: json['total'] is int
+          ? json['total']
+          : int.tryParse(json['total']?.toString() ?? '0') ?? 0,
       totalActive: json['total_active'] is int
           ? json['total_active']
           : int.tryParse(json['total_active']?.toString() ?? '0') ?? 0,
@@ -85,13 +90,7 @@ class VolunteerCertificate {
   /// Normalisasi URL jika berjalan pada Android Emulator (127.0.0.1 -> 10.0.2.2)
   String normalizeUrl(String? raw) {
     if (raw == null || raw.isEmpty) return '';
-    if (AppConfig.apiUrl.contains('10.0.2.2') && raw.contains('127.0.0.1')) {
-      return raw.replaceAll('127.0.0.1', '10.0.2.2');
-    }
-    if (AppConfig.apiUrl.contains('10.0.2.2') && raw.contains('localhost')) {
-      return raw.replaceAll('localhost', '10.0.2.2');
-    }
-    return raw;
+    return AppConfig.resolveServerUrl(raw);
   }
 
   String get normalizedQrCode => normalizeUrl(qrCode);
@@ -100,23 +99,32 @@ class VolunteerCertificate {
 
   factory VolunteerCertificate.fromJson(Map<String, dynamic> json) {
     final rawId = json['id'];
-    final int parsedId = rawId is int ? rawId : int.tryParse(rawId?.toString() ?? '0') ?? 0;
+    final int parsedId =
+        rawId is int ? rawId : int.tryParse(rawId?.toString() ?? '0') ?? 0;
 
     final rawVolId = json['volunteer_id'];
-    final int parsedVolId = rawVolId is int ? rawVolId : int.tryParse(rawVolId?.toString() ?? '0') ?? 0;
+    final int parsedVolId = rawVolId is int
+        ? rawVolId
+        : int.tryParse(rawVolId?.toString() ?? '0') ?? 0;
 
     final rawCampId = json['campaign_id'];
-    final int? parsedCampId = rawCampId is int ? rawCampId : int.tryParse(rawCampId?.toString() ?? '');
+    final int? parsedCampId = rawCampId is int
+        ? rawCampId
+        : int.tryParse(rawCampId?.toString() ?? '');
 
     final rawHours = json['total_volunteer_hours'];
-    final int parsedHours = rawHours is int ? rawHours : int.tryParse(rawHours?.toString() ?? '8') ?? 8;
+    final int parsedHours = rawHours is int
+        ? rawHours
+        : int.tryParse(rawHours?.toString() ?? '8') ?? 8;
 
     final rawDownloadable = json['is_downloadable'];
     final bool parsedDownloadable = rawDownloadable is bool
         ? rawDownloadable
-        : (rawDownloadable?.toString().toLowerCase() == 'true' || rawDownloadable == 1);
+        : (rawDownloadable?.toString().toLowerCase() == 'true' ||
+            rawDownloadable == 1);
 
-    final String statusStr = json['status']?.toString() ?? 'pending';
+    final String statusStr =
+        json['status']?.toString().toLowerCase() ?? 'pending';
     final String fallbackStatusLabel = statusStr == 'active'
         ? 'Aktif'
         : (statusStr == 'pending' ? 'Menunggu Kampanye Selesai' : 'Dicabut');
@@ -139,7 +147,7 @@ class VolunteerCertificate {
       organizerName: json['organizer_name']?.toString() ?? 'Dongiv',
       status: statusStr,
       statusLabel: json['status_label']?.toString() ?? fallbackStatusLabel,
-      isDownloadable: parsedDownloadable,
+      isDownloadable: parsedDownloadable && statusStr == 'active',
       certificateFile: json['certificate_file']?.toString(),
       qrCode: json['qr_code']?.toString(),
       verifyUrl: json['verify_url']?.toString(),

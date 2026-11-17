@@ -4,7 +4,9 @@ import '../services/auth_service.dart';
 import '../services/notification_service.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({Key? key}) : super(key: key);
+  const LoginPage({Key? key, this.returnToPreviousPage = false}) : super(key: key);
+
+  final bool returnToPreviousPage;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -56,7 +58,11 @@ class _LoginPageState extends State<LoginPage> {
         );
 
         // Arahkan ke halaman utama
-        Navigator.of(context).pushReplacementNamed('/');
+        if (widget.returnToPreviousPage || ModalRoute.of(context)?.settings.arguments == true) {
+          Navigator.of(context).pop(true);
+        } else {
+          Navigator.of(context).pushReplacementNamed('/');
+        }
       } else {
         final rawMessage = response.message ?? '';
         String errorMessage;
@@ -430,7 +436,8 @@ class _LoginPageState extends State<LoginPage> {
                                                     : () => Navigator
                                                         .pushReplacementNamed(
                                                             context,
-                                                            '/register'),
+                                                            '/register',
+                                                            arguments: widget.returnToPreviousPage || ModalRoute.of(context)?.settings.arguments == true),
                                                 style: TextButton.styleFrom(
                                                   foregroundColor: _primary,
                                                   padding: const EdgeInsets

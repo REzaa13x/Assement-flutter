@@ -115,8 +115,8 @@ class MyApp extends StatelessWidget {
         '/volunteer_history': (context) => const VolunteerHistoryPage(),
         '/my_certificates': (context) => const MyCertificatesPage(),
         '/certificate_detail': (context) {
-          final cert = ModalRoute.of(context)?.settings.arguments
-              as VolunteerCertificate?;
+          final args = ModalRoute.of(context)?.settings.arguments;
+          final cert = args is VolunteerCertificate ? args : null;
           return CertificateDetailPage(certificate: cert);
         },
         '/notifications': (context) => const NotificationsPage(),

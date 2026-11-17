@@ -25,6 +25,7 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _showConfirmPassword = false;
 
   Future<void> _register() async {
+    if (_isLoading) return;
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -52,6 +53,8 @@ class _RegisterPageState extends State<RegisterPage> {
         birthDate: _birthDateController.text.isNotEmpty ? _birthDateController.text : null,
       );
 
+      if (!mounted) return;
+
       if (response.success && response.token != null) {
         // Simpan token ke shared preferences
         await AuthService.saveToken(response.token!);
@@ -63,6 +66,8 @@ class _RegisterPageState extends State<RegisterPage> {
         // Hubungkan token perangkat (FCM) dengan akun yang baru terdaftar
         NotificationService.registerTokenForCurrentUser();
 
+        if (!mounted) return;
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Registrasi berhasil!'),
@@ -71,7 +76,12 @@ class _RegisterPageState extends State<RegisterPage> {
         );
 
         // Arahkan ke halaman home langsung setelah registrasi
-        Navigator.of(context).pushReplacementNamed('/');
+        if (!mounted) return;
+        if (ModalRoute.of(context)?.settings.arguments == true) {
+          Navigator.of(context).pop(true);
+        } else {
+          Navigator.of(context).pushReplacementNamed('/');
+        }
       } else {
         String errorMessage = response.message ?? 'Registrasi gagal';
         if (response.errors != null && response.errors!.isNotEmpty) {
@@ -87,6 +97,7 @@ class _RegisterPageState extends State<RegisterPage> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Terjadi kesalahan: $e'),
@@ -94,9 +105,11 @@ class _RegisterPageState extends State<RegisterPage> {
         ),
       );
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -439,7 +452,8 @@ class _RegisterPageState extends State<RegisterPage> {
                           alignment: Alignment.center,
                           child: GestureDetector(
                             onTap: () {
-                              Navigator.pushReplacementNamed(context, '/login');
+                                Navigator.pushReplacementNamed(context, '/login',
+                                    arguments: ModalRoute.of(context)?.settings.arguments == true);
                             },
                             child: const Text(
                               'Sudah punya akun? Masuk di sini',

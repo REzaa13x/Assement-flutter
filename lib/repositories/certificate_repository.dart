@@ -19,7 +19,8 @@ class CertificateListResult {
 
 class CertificateRepository {
   /// Mengambil daftar sertifikat milik pengguna yang sedang login
-  static Future<CertificateListResult> getMyCertificates({String? token}) async {
+  static Future<CertificateListResult> getMyCertificates(
+      {String? token}) async {
     try {
       final response = await ApiService.get('v1/certificates', token: token);
 
@@ -29,12 +30,16 @@ class CertificateRepository {
 
         List<VolunteerCertificate> list = [];
         if (rawList is List) {
-          list = rawList.map((e) => VolunteerCertificate.fromJson(Map<String, dynamic>.from(e))).toList();
+          list = rawList
+              .map((e) =>
+                  VolunteerCertificate.fromJson(Map<String, dynamic>.from(e)))
+              .toList();
         }
 
         CertificateMeta? meta;
         if (json['meta'] != null && json['meta'] is Map) {
-          meta = CertificateMeta.fromJson(Map<String, dynamic>.from(json['meta']));
+          meta =
+              CertificateMeta.fromJson(Map<String, dynamic>.from(json['meta']));
         }
 
         return CertificateListResult(
@@ -46,7 +51,8 @@ class CertificateRepository {
         throw Exception('Sesi login telah berakhir. Silakan login kembali.');
       } else {
         final Map<String, dynamic>? err = _tryParseJson(response.body);
-        final String msg = err?['message'] ?? 'Gagal mengambil daftar sertifikat (${response.statusCode})';
+        final String msg = err?['message'] ??
+            'Gagal mengambil daftar sertifikat (${response.statusCode})';
         throw Exception(msg);
       }
     } catch (e) {
@@ -56,15 +62,18 @@ class CertificateRepository {
   }
 
   /// Mengambil detail satu sertifikat milik pengguna
-  static Future<VolunteerCertificate> getCertificateDetail(int id, {String? token}) async {
+  static Future<VolunteerCertificate> getCertificateDetail(int id,
+      {String? token}) async {
     try {
-      final response = await ApiService.get('v1/certificates/$id', token: token);
+      final response =
+          await ApiService.get('v1/certificates/$id', token: token);
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> json = jsonDecode(response.body);
         final dynamic rawData = json['data'];
         if (rawData is Map) {
-          return VolunteerCertificate.fromJson(Map<String, dynamic>.from(rawData));
+          return VolunteerCertificate.fromJson(
+              Map<String, dynamic>.from(rawData));
         }
         throw Exception('Data sertifikat tidak valid');
       } else if (response.statusCode == 404) {
@@ -73,7 +82,8 @@ class CertificateRepository {
         throw Exception('Sesi login telah berakhir. Silakan login kembali.');
       } else {
         final Map<String, dynamic>? err = _tryParseJson(response.body);
-        final String msg = err?['message'] ?? 'Gagal mengambil detail sertifikat (${response.statusCode})';
+        final String msg = err?['message'] ??
+            'Gagal mengambil detail sertifikat (${response.statusCode})';
         throw Exception(msg);
       }
     } catch (e) {
@@ -85,26 +95,30 @@ class CertificateRepository {
   /// Mengambil URL download (signed temporary route dari Laravel)
   static Future<String> getDownloadUrl(int id, {String? token}) async {
     try {
-      final response = await ApiService.get('v1/certificates/$id/download-url', token: token);
+      final response = await ApiService.get('v1/certificates/$id/download-url',
+          token: token);
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> json = jsonDecode(response.body);
         final String? rawUrl = json['download_url']?.toString();
         if (rawUrl != null && rawUrl.isNotEmpty) {
-          // Normalisasi URL jika Android Emulator mengakses 127.0.0.1
-          if (AppConfig.apiUrl.contains('10.0.2.2') && rawUrl.contains('127.0.0.1')) {
-            return rawUrl.replaceAll('127.0.0.1', '10.0.2.2');
+          final normalized = AppConfig.resolveServerUrl(rawUrl);
+          final uri = Uri.parse(normalized);
+          if (uri.scheme != 'https' && uri.scheme != 'http') {
+            throw Exception('URL unduhan sertifikat tidak valid.');
           }
-          return rawUrl;
+          return normalized;
         }
         throw Exception('URL download tidak ditemukan');
       } else if (response.statusCode == 403) {
         final Map<String, dynamic>? err = _tryParseJson(response.body);
-        final String msg = err?['message'] ?? 'Sertifikat belum dapat diunduh. Kegiatan relawan belum selesai.';
+        final String msg = err?['message'] ??
+            'Sertifikat belum dapat diunduh. Kegiatan relawan belum selesai.';
         throw Exception(msg);
       } else {
         final Map<String, dynamic>? err = _tryParseJson(response.body);
-        final String msg = err?['message'] ?? 'Gagal memperoleh link download (${response.statusCode})';
+        final String msg = err?['message'] ??
+            'Gagal memperoleh link download (${response.statusCode})';
         throw Exception(msg);
       }
     } catch (e) {
@@ -114,21 +128,29 @@ class CertificateRepository {
   }
 
   /// Download langsung raw bytes PDF dari endpoint API
-  static Future<Uint8List> downloadCertificatePdfBytes(int id, {String? token}) async {
+  static Future<Uint8List> downloadCertificatePdfBytes(int id,
+      {String? token}) async {
     try {
-      final url = Uri.parse('${AppConfig.apiUrl}/v1/certificates/$id/download');
+      final url = ApiService.endpointUri('v1/certificates/$id/download');
       final requestHeaders = {
         'Accept': 'application/pdf',
         if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
       };
 
-      final response = await http.get(url, headers: requestHeaders);
+      final response = await http
+          .get(url, headers: requestHeaders)
+          .timeout(ApiService.requestTimeout);
 
       if (response.statusCode == 200) {
+        if (response.bodyBytes.length < 5 ||
+            String.fromCharCodes(response.bodyBytes.take(5)) != '%PDF-') {
+          throw Exception('Server tidak mengembalikan file PDF sertifikat.');
+        }
         return response.bodyBytes;
       } else if (response.statusCode == 403) {
         final Map<String, dynamic>? err = _tryParseJson(response.body);
-        final String msg = err?['message'] ?? 'Sertifikat belum dapat diunduh. Kegiatan belum selesai.';
+        final String msg = err?['message'] ??
+            'Sertifikat belum dapat diunduh. Kegiatan belum selesai.';
         throw Exception(msg);
       } else {
         throw Exception('Gagal mengunduh file PDF (${response.statusCode})');
@@ -140,9 +162,11 @@ class CertificateRepository {
   }
 
   /// Verifikasi sertifikat secara publik menggunakan nomor sertifikat
-  static Future<Map<String, dynamic>> verifyCertificate(String certificateNumber) async {
+  static Future<Map<String, dynamic>> verifyCertificate(
+      String certificateNumber) async {
     try {
-      final response = await ApiService.get('v1/certificate/verify/$certificateNumber');
+      final response = await ApiService.get(
+          'v1/certificate/verify/${Uri.encodeComponent(certificateNumber)}');
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;

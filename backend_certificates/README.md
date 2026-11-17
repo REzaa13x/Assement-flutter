@@ -1,5 +1,7 @@
 # Sertifikat relawan: kesesuaian website, mobile, dan hosting
 
+Perbaikan data: `backfill_certificates.php` menambahkan sertifikat yang belum ada dari pendaftaran `approved`, menggunakan data kegiatan asli dan aturan model admin. Pada backend localhost, dua sertifikat yang hilang sudah dibuat; pemeriksaan ulang menunjukkan nol pendaftaran approved tanpa sertifikat. Tujuh sertifikat sekarang berstatus pending. Status sertifikat lama tetap dipertahankan. Untuk hosting, jalankan dry run pada direktori Laravel tujuan sebelum memakai `--apply`.
+
 Perubahan sudah dipasang pada Laravel lokal:
 `C:/Users/Lenovo/Downloads/DONGIV/TUBES-PABW-new - Salin`.
 

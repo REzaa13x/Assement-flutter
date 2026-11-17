@@ -1,5 +1,7 @@
 # Perbaikan pendaftaran relawan
 
+Pembacaan PDF di Flutter kini mendukung byte, stream dokumen, dan path perangkat. Byte dibaca saat memilih file dan dipertahankan sampai submit, sehingga submit tidak perlu membaca ulang path sementara. File kosong, isi bukan PDF, dan ukuran aktual di atas 2 MiB ditolak sebelum upload. Perubahan klien ini harus dibuild ulang untuk APK/web yang dipakai pengguna.
+
 Tambahan alur sesi: formulir membuka login jika token belum tersedia. Jika API membalas 401, token lama dibersihkan dan login dibuka kembali. Isian dan CV tetap tersimpan selama halaman formulir terbuka. Setelah login ulang karena 401, pengguna menekan Kirim Pendaftaran kembali. Login/registrasi dari alur ini kembali ke formulir. Server Laravel harus aktif di alamat `API_BASE_URL`; tanpa server, login maupun submit tidak dapat berjalan.
 
 Penyebab: endpoint POST `/api/v1/volunteer-applications` masih mencoba menulis `motivation` dan `skills`, sedangkan migrasi website menggunakan `alamat`, `posisi_dilamar`, `alasan_bergabung`, serta `cv_path` yang wajib terisi. File CV dari mobile sebelumnya tidak disimpan oleh API.

@@ -14,7 +14,23 @@ class CampaignLocationService {
     final response = await ApiService.get(
         Uri(path: 'v1/locations/$action', queryParameters: query).toString(),
         token: token);
-    final body = jsonDecode(response.body);
+    if (response.statusCode == 404) {
+      throw Exception(
+          'Layanan lokasi belum terpasang pada server. Perbarui API lokasi di backend dan periksa alamat API aplikasi.');
+    }
+    if (response.statusCode == 401) {
+      throw Exception(
+          'Sesi login berakhir. Silakan login kembali untuk memilih lokasi.');
+    }
+    dynamic body;
+    try {
+      body = jsonDecode(response.body);
+    } catch (_) {
+      throw Exception('Layanan alamat tidak tersedia. Silakan coba lagi.');
+    }
+    if (body is! Map) {
+      throw Exception('Data layanan alamat tidak valid. Silakan coba lagi.');
+    }
     if (response.statusCode != 200) {
       throw Exception(body['message'] ??
           'Layanan alamat tidak tersedia. Silakan coba lagi.');

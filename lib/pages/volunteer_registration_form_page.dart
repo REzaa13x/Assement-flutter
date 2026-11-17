@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:image_picker/image_picker.dart' show XFile;
 import 'package:cached_network_image/cached_network_image.dart';
 import '../services/auth_service.dart';
 import '../services/profile_service.dart';
 import '../repositories/volunteer_repository.dart';
 import '../models/volunteer_campaign.dart';
 import '../config/app_config.dart';
+import '../services/volunteer_cv_service.dart';
 import 'login_page.dart';
 
 const Color kPrimaryColor = Color(0xFF2972FF);
@@ -38,6 +38,8 @@ class _VolunteerRegistrationFormPageState
   String? _selectedPosition;
   PlatformFile? _selectedCvFile;
   int? _selectedCvFileSize;
+  Uint8List? _selectedCvBytes;
+  bool _isPickingCv = false;
 
   int? _volunteerCampaignId;
   String _campaignTitle = 'Kampanye Relawan';
@@ -148,7 +150,8 @@ class _VolunteerRegistrationFormPageState
   }
 
   Future<void> _pickCvFile() async {
-    if (_isSubmitting || _submitted) return;
+    if (_isSubmitting || _submitted || _isPickingCv) return;
+    setState(() => _isPickingCv = true);
     try {
       final PlatformFile? file;
       if (widget.pickCvFile != null) {
@@ -158,42 +161,34 @@ class _VolunteerRegistrationFormPageState
           type: FileType.custom,
           allowedExtensions: ['pdf'],
           withData: true,
+          withReadStream: true,
         );
 
         file =
             result == null || result.files.isEmpty ? null : result.files.first;
       }
       if (!mounted || file == null) return;
-      final String fileName = file.name.toLowerCase();
-      final int size = file.size;
-
-      // Validasi ekstensi PDF
-      if (!fileName.endsWith('.pdf')) {
-        _showErrorSnackBar(
-            'Format file tidak didukung! Hanya menerima file PDF.');
-        return;
-      }
-
-      // Validasi batas ukuran maksimum 2 MB (2 * 1024 * 1024 bytes)
-      if (size > 2 * 1024 * 1024) {
-        _showErrorSnackBar(
-            'Ukuran file melebihi batas! Maksimal ukuran file 2 MB.');
-        return;
-      }
-
+      final bytes = await VolunteerCvService.readPdf(file);
+      if (!mounted) return;
       setState(() {
         _selectedCvFile = file;
-        _selectedCvFileSize = size;
+        _selectedCvBytes = bytes;
+        _selectedCvFileSize = bytes.length;
       });
     } catch (e) {
-      _showErrorSnackBar('Gagal memilih file: $e');
+      if (mounted) {
+        _showErrorSnackBar(e.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted) setState(() => _isPickingCv = false);
     }
   }
 
   void _removeCvFile() {
-    if (_isSubmitting || _submitted) return;
+    if (_isSubmitting || _submitted || _isPickingCv) return;
     setState(() {
       _selectedCvFile = null;
+      _selectedCvBytes = null;
       _selectedCvFileSize = null;
     });
   }
@@ -222,7 +217,7 @@ class _VolunteerRegistrationFormPageState
   }
 
   Future<void> _submitForm() async {
-    if (_isSubmitting || _submitted) return;
+    if (_isSubmitting || _submitted || _isPickingCv) return;
     FocusScope.of(context).unfocus();
     // 1. Validasi form dasar (alamat & motivasi)
     final formValid = _formKey.currentState?.validate() ?? false;
@@ -258,17 +253,15 @@ class _VolunteerRegistrationFormPageState
       if (!mounted) return;
       if (token == null || token.isEmpty) {
         final loggedIn = await Navigator.of(context).push<bool>(
-          MaterialPageRoute(builder: (_) => const LoginPage(returnToPreviousPage: true)),
+          MaterialPageRoute(
+              builder: (_) => const LoginPage(returnToPreviousPage: true)),
         );
         if (!mounted || loggedIn != true) return;
         await _loadUserData();
         token = await AuthService.getToken();
         if (!mounted || token == null || token.isEmpty) return;
       }
-      Uint8List? cvBytes = _selectedCvFile!.bytes;
-      if (cvBytes == null && _selectedCvFile!.path != null) {
-        cvBytes = await XFile(_selectedCvFile!.path!).readAsBytes();
-      }
+      final cvBytes = _selectedCvBytes;
 
       if (cvBytes == null) {
         _showErrorSnackBar('Gagal membaca isi file PDF.');
@@ -308,8 +301,8 @@ class _VolunteerRegistrationFormPageState
           builder: (ctx) => AlertDialog(
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: Row(
-              children: const [
+            title: const Row(
+              children: [
                 Icon(Icons.check_circle_rounded, color: Colors.green, size: 28),
                 SizedBox(width: 10),
                 Expanded(child: Text('Pendaftaran Berhasil!')),
@@ -341,13 +334,15 @@ class _VolunteerRegistrationFormPageState
         await AuthService.removeToken();
         if (!mounted) return;
         final loggedIn = await Navigator.of(context).push<bool>(
-          MaterialPageRoute(builder: (_) => const LoginPage(returnToPreviousPage: true)),
+          MaterialPageRoute(
+              builder: (_) => const LoginPage(returnToPreviousPage: true)),
         );
         if (!mounted) return;
         if (loggedIn == true) {
           await _loadUserData();
           if (!mounted) return;
-          _showErrorSnackBar('Login berhasil. Silakan kirim kembali pendaftaran Anda.');
+          _showErrorSnackBar(
+              'Login berhasil. Silakan kirim kembali pendaftaran Anda.');
         }
       } else {
         // Tampilkan pesan kesalahan dari backend
@@ -426,7 +421,7 @@ class _VolunteerRegistrationFormPageState
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.04),
+                          color: Colors.black.withValues(alpha: 0.04),
                         blurRadius: 15,
                         offset: const Offset(0, 5),
                       ),
@@ -450,12 +445,13 @@ class _VolunteerRegistrationFormPageState
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: const [
+                            const Row(
+                              children: [
                                 Icon(Icons.volunteer_activism_rounded,
                                     color: Colors.white70, size: 18),
                                 SizedBox(width: 8),
-                                Expanded(child: Text(
+                                Expanded(
+                                    child: Text(
                                   'Anda mendaftar untuk program:',
                                   style: TextStyle(
                                     color: Colors.white70,
@@ -786,7 +782,7 @@ class _VolunteerRegistrationFormPageState
                           Container(
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
-                              color: kPrimaryColor.withOpacity(0.08),
+                              color: kPrimaryColor.withValues(alpha: 0.08),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
@@ -897,10 +893,12 @@ class _VolunteerRegistrationFormPageState
                   width: double.infinity,
                   height: 54,
                   child: ElevatedButton(
-                    onPressed: _isSubmitting || _submitted ? null : _submitForm,
+                    onPressed: _isSubmitting || _submitted || _isPickingCv
+                        ? null
+                        : _submitForm,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kPrimaryColor,
-                      disabledBackgroundColor: kPrimaryColor.withOpacity(0.6),
+                      disabledBackgroundColor: kPrimaryColor.withValues(alpha: 0.6),
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
@@ -908,9 +906,9 @@ class _VolunteerRegistrationFormPageState
                       ),
                     ),
                     child: _isSubmitting
-                        ? Row(
+                        ? const Row(
                             mainAxisAlignment: MainAxisAlignment.center,
-                            children: const [
+                            children: [
                               SizedBox(
                                 width: 20,
                                 height: 20,
@@ -920,7 +918,8 @@ class _VolunteerRegistrationFormPageState
                                 ),
                               ),
                               SizedBox(width: 12),
-                              Flexible(child: Text(
+                              Flexible(
+                                  child: Text(
                                 'Sedang Mengirim...',
                                 style: TextStyle(
                                   fontSize: 16,
@@ -930,10 +929,11 @@ class _VolunteerRegistrationFormPageState
                               )),
                             ],
                           )
-                        : Row(
+                        : const Row(
                             mainAxisAlignment: MainAxisAlignment.center,
-                            children: const [
-                              Flexible(child: Text(
+                            children: [
+                              Flexible(
+                                  child: Text(
                                 'Kirim Pendaftaran',
                                 style: TextStyle(
                                   fontSize: 16,

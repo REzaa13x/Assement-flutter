@@ -14,6 +14,7 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   bool _isLoading = true;
+  bool _isLoggingOut = false;
   bool _hasError = false;
   String _errorMessage = '';
   UserProfile? _userProfile;
@@ -40,6 +41,7 @@ class _ProfilePageState extends State<ProfilePage> {
       }
 
       final response = await ProfileRepository.getProfile(token: token);
+      if (!mounted || _isLoggingOut) return;
 
       if (response.data != null) {
         setState(() {
@@ -50,6 +52,7 @@ class _ProfilePageState extends State<ProfilePage> {
         throw Exception(response.message ?? 'Gagal memuat profil');
       }
     } catch (e) {
+      if (!mounted || _isLoggingOut) return;
       setState(() {
         _isLoading = false;
         _hasError = true;
@@ -117,6 +120,10 @@ class _ProfilePageState extends State<ProfilePage> {
                 foregroundColor: Colors.white,
               ),
               child: const Text('Coba Lagi'),
+            ),
+            TextButton(
+              onPressed: _isLoggingOut ? null : _logout,
+              child: Text(_isLoggingOut ? 'Sedang keluar...' : 'Keluar'),
             ),
           ],
         ),
@@ -320,10 +327,10 @@ class _ProfilePageState extends State<ProfilePage> {
         // Logout option
         _buildProfileOption(
           icon: Icons.logout,
-          title: 'Keluar',
+          title: _isLoggingOut ? 'Sedang keluar...' : 'Keluar',
           titleColor: Colors.red,
           iconColor: Colors.red,
-          onTap: _logout,
+          onTap: _isLoggingOut ? null : _logout,
         ),
 
         // About section
@@ -393,28 +400,29 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _logout() async {
-    // Ambil token dari storage
-    String? token = await _getToken();
-
-    // Lepaskan token perangkat dari akun ini SEBELUM token autentikas
-    // dicabut, agar notifikasi selanjutnya tidak salah sasaran
-    await NotificationService.unregisterCurrentToken();
-
-    bool success = await AuthRepository.logout(token: token);
-
-    if (success) {
-      // Hapus token dari storage
-      await AuthService.removeToken();
-
-      // Arahkan ke halaman login
+    if (_isLoggingOut) return;
+    setState(() => _isLoggingOut = true);
+    try {
+      final token = await _getToken();
+      try {
+        await NotificationService.unregisterCurrentToken()
+            .timeout(const Duration(seconds: 2));
+      } catch (_) {
+        // Device registration must not prevent local sign out.
+      }
+      await AuthRepository.logout(token: token);
+      if (!mounted) return;
       Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-    } else {
+    } catch (_) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Gagal logout'),
+          content: Text('Gagal membersihkan sesi perangkat. Silakan coba lagi.'),
           backgroundColor: Colors.red,
         ),
       );
+    } finally {
+      if (mounted) setState(() => _isLoggingOut = false);
     }
   }
 }

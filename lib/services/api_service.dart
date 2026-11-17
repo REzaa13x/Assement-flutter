@@ -34,7 +34,7 @@ class ApiService {
 
   // POST request
   static Future<http.Response> post(String endpoint, dynamic data,
-      {String? token}) async {
+      {String? token, Duration timeout = requestTimeout}) async {
     final url = endpointUri(endpoint);
     final requestHeaders = {
       ...headers,
@@ -46,7 +46,7 @@ class ApiService {
           headers: requestHeaders,
           body: jsonEncode(data),
         )
-        .timeout(requestTimeout);
+        .timeout(timeout);
     return response;
   }
 

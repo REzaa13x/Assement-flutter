@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'profile_service.dart';
 
 class AuthService {
   static const String _tokenKey = 'auth_token';
@@ -22,6 +23,7 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_userKey);
+    await ProfileService.clearUserProfile();
   }
 
   // Menyimpan data pengguna (dalam format JSON agar bisa dibaca kembali)

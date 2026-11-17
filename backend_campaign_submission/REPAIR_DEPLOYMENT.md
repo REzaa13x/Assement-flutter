@@ -1,5 +1,17 @@
 # Peta, sertifikat, dan PDF relawan
 
+## Menjalankan aplikasi lokal yang sudah terhubung
+
+Alamat Flutter `http://localhost:58236` adalah server tampilan; endpoint lokasi berada pada Laravel `http://127.0.0.1:8000/api`. Jalankan aplikasi dengan API yang eksplisit:
+
+```powershell
+flutter run -d web-server --web-hostname=localhost --web-port=58236 --dart-define=API_BASE_URL=http://127.0.0.1:8000/api
+```
+
+Atau pilih konfigurasi VS Code **DonGiv Web - API localhost** dalam `.vscode/launch.json`. Gunakan satu proses Flutter pada port 58236. Setelah mengganti konfigurasi `API_BASE_URL`, hentikan sesi Flutter lama dan jalankan ulang; hot reload saja tidak mengganti compile-time define. Jika browser masih menampilkan halaman lama, lakukan hard refresh (Ctrl+Shift+R).
+
+Pemeriksaan langsung dari origin `http://localhost:58236` pada koordinat `-6.9731680,107.6326450` berhasil mengembalikan alamat melalui endpoint reverse berautentikasi. CORS preflight mengizinkan Authorization. Tidak ada kampanye baru yang dibuat dalam pemeriksaan ini.
+
 Perubahan pada komputer localhost belum otomatis memperbarui hosting atau APK yang sudah terpasang.
 
 ## Peta

@@ -81,11 +81,16 @@ void main() {
     await AuthService.saveToken(response.token!);
     expect(await AuthService.isLoggedIn(), isTrue);
 
+    final tokenBeforeLogout = await AuthService.getToken();
     final loggedOut =
-        await AuthRepository.logout(token: await AuthService.getToken());
+        await AuthRepository.logout(token: tokenBeforeLogout);
     expect(loggedOut, isTrue, reason: 'Logout harus mengembalikan 200');
 
-    await AuthService.removeToken();
     expect(await AuthService.isLoggedIn(), isFalse);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.containsKey('user_profile'), isFalse);
+    final oldSession = await AuthRepository.getCurrentUser(token: tokenBeforeLogout);
+    expect(oldSession.success, isFalse,
+        reason: 'Token lama harus ditolak server setelah logout');
   }, timeout: const Timeout(Duration(seconds: 30)));
 }

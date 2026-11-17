@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "DonGiv Web - API localhost",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "chrome",
+      "program": "lib/main.dart",
+      "args": [
+        "--web-hostname=localhost",
+        "--web-port=58236",
+        "--dart-define=API_BASE_URL=http://127.0.0.1:8000/api"
+      ]
+    }
+  ]
+}

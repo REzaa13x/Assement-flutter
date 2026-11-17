@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/auth.dart';
 import '../services/api_service.dart';
 import '../services/profile_service.dart';
+import '../services/auth_service.dart';
 
 class AuthRepository {
   // Register user
@@ -137,17 +138,20 @@ class AuthRepository {
 
   // Logout user
   static Future<bool> logout({required String? token}) async {
-    if (token == null || token.isEmpty) {
-      return false;
-    }
-
     try {
-      final response = await ApiService.post('v1/logout', {}, token: token);
+      if (token == null || token.isEmpty) return true;
+      final response = await ApiService.post('v1/logout', {},
+          token: token, timeout: const Duration(seconds: 5));
 
-      return response.statusCode == 200;
+      return response.statusCode == 200 ||
+          response.statusCode == 204 ||
+          response.statusCode == 401;
     } catch (e) {
       print('Error in logout: $e');
       return false;
+    } finally {
+      // Local logout must also work offline or after the server expires a token.
+      await AuthService.removeToken();
     }
   }
 

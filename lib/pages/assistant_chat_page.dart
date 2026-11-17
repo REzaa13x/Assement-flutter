@@ -42,7 +42,8 @@ class _AssistantChatPageState extends State<AssistantChatPage> {
     _messages.add(
       ChatbotMessage(
         id: 'welcome',
-        text: 'Halo Sahabat DonGiv! 👋 Saya DonGiv Assistant.\nAda yang bisa saya bantu hari ini? Tanyakan kampanye donasi atau kegiatan relawan yang ingin Anda dukung!',
+        text:
+            'Halo Sahabat DonGiv! 👋 Saya DonGiv Assistant.\nAda yang bisa saya bantu hari ini? Tanyakan kampanye donasi atau kegiatan relawan yang ingin Anda dukung!',
         isUser: false,
         timestamp: DateTime.now(),
         usedAi: false,
@@ -59,7 +60,7 @@ class _AssistantChatPageState extends State<AssistantChatPage> {
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
+      if (mounted && _scrollController.hasClients) {
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,
           duration: const Duration(milliseconds: 300),
@@ -70,7 +71,7 @@ class _AssistantChatPageState extends State<AssistantChatPage> {
   }
 
   Future<void> _handleSend([String? presetText]) async {
-    final query = presetText ?? _textController.text.trim();
+    final query = (presetText ?? _textController.text).trim();
     if (query.isEmpty || _isLoading) return;
 
     if (presetText == null) {
@@ -98,7 +99,8 @@ class _AssistantChatPageState extends State<AssistantChatPage> {
         isUser: false,
         timestamp: DateTime.now(),
         usedAi: result['used_ai'] as bool,
-        recommendations: result['recommendations'] as List<ChatbotRecommendation>,
+        recommendations:
+            result['recommendations'] as List<ChatbotRecommendation>,
       );
 
       if (mounted) {
@@ -115,7 +117,9 @@ class _AssistantChatPageState extends State<AssistantChatPage> {
           _messages.add(
             ChatbotMessage(
               id: (DateTime.now().millisecondsSinceEpoch + 1).toString(),
-              text: 'Maaf, terjadi kendala saat menghubungi server DonGiv Assistant. Pastikan server backend aktif dan periksa koneksi internet Anda. 🙏',
+              text: e is ChatbotException
+                  ? e.message
+                  : 'Balasan belum dapat dimuat. Silakan coba lagi.',
               isUser: false,
               timestamp: DateTime.now(),
               usedAi: false,
@@ -123,6 +127,7 @@ class _AssistantChatPageState extends State<AssistantChatPage> {
           );
           _isLoading = false;
         });
+        if (_textController.text.isEmpty) _textController.text = query;
         _scrollToBottom();
       }
     }
@@ -177,8 +182,12 @@ class _AssistantChatPageState extends State<AssistantChatPage> {
         description: 'Lokasi: ${rec.location ?? "-"}',
         imageUrl: _normalizeImageUrl(rec.imageUrl),
         location: rec.location ?? 'Indonesia',
-        startDate: rec.startDate != null ? DateTime.tryParse(rec.startDate!) ?? DateTime.now() : DateTime.now(),
-        endDate: rec.endDate != null ? DateTime.tryParse(rec.endDate!) ?? DateTime.now() : DateTime.now(),
+        startDate: rec.startDate != null
+            ? DateTime.tryParse(rec.startDate!) ?? DateTime.now()
+            : DateTime.now(),
+        endDate: rec.endDate != null
+            ? DateTime.tryParse(rec.endDate!) ?? DateTime.now()
+            : DateTime.now(),
         maxVolunteers: rec.maxVolunteers ?? 0,
         registeredVolunteers: rec.registeredVolunteers ?? 0,
         requirements: 'Terbuka untuk semua sahabat relawan',
@@ -189,7 +198,8 @@ class _AssistantChatPageState extends State<AssistantChatPage> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => VolunteerCampaignDetailPage(campaign: volCampaign),
+          builder: (context) =>
+              VolunteerCampaignDetailPage(campaign: volCampaign),
         ),
       );
     }
@@ -228,7 +238,8 @@ class _AssistantChatPageState extends State<AssistantChatPage> {
                   ),
                 ],
               ),
-              child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 20),
+              child: const Icon(Icons.auto_awesome_rounded,
+                  color: Colors.white, size: 20),
             ),
             const SizedBox(width: 10),
             const Column(
@@ -243,7 +254,7 @@ class _AssistantChatPageState extends State<AssistantChatPage> {
                   ),
                 ),
                 Text(
-                  'Hybrid AI & Live Database',
+                  'Panduan & Rekomendasi DonGiv',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
@@ -278,13 +289,15 @@ class _AssistantChatPageState extends State<AssistantChatPage> {
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+                          color:
+                              const Color(0xFF0F172A).withValues(alpha: 0.04),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -296,7 +309,8 @@ class _AssistantChatPageState extends State<AssistantChatPage> {
                         SizedBox(
                           width: 14,
                           height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: kPrimaryColor),
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: kPrimaryColor),
                         ),
                         SizedBox(width: 10),
                         Text(
@@ -324,12 +338,16 @@ class _AssistantChatPageState extends State<AssistantChatPage> {
                 return ActionChip(
                   label: Text(
                     prompt,
-                    style: const TextStyle(fontSize: 11.5, color: Color(0xFF334155), fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFF334155),
+                        fontWeight: FontWeight.w600),
                   ),
                   backgroundColor: Colors.white,
                   side: const BorderSide(color: Color(0xFFE2E8F0)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  onPressed: () => _handleSend(prompt),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
+                  onPressed: _isLoading ? null : () => _handleSend(prompt),
                 );
               },
             ),
@@ -359,20 +377,24 @@ class _AssistantChatPageState extends State<AssistantChatPage> {
                       ),
                       child: TextField(
                         controller: _textController,
+                        maxLength: 1000,
                         textInputAction: TextInputAction.send,
                         onSubmitted: (_) => _handleSend(),
                         decoration: const InputDecoration(
                           hintText: 'Tanyakan donasi atau relawan...',
-                          hintStyle: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                          hintStyle:
+                              TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
                           border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                          counterText: '',
+                          contentPadding: EdgeInsets.symmetric(
+                              horizontal: 18, vertical: 12),
                         ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   InkWell(
-                    onTap: () => _handleSend(),
+                    onTap: _isLoading ? null : () => _handleSend(),
                     borderRadius: BorderRadius.circular(50),
                     child: Container(
                       width: 44,
@@ -390,7 +412,8 @@ class _AssistantChatPageState extends State<AssistantChatPage> {
                           ),
                         ],
                       ),
-                      child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                      child: const Icon(Icons.send_rounded,
+                          color: Colors.white, size: 20),
                     ),
                   ),
                 ],
@@ -408,7 +431,8 @@ class _AssistantChatPageState extends State<AssistantChatPage> {
         margin: const EdgeInsets.only(bottom: 12),
         alignment: Alignment.centerRight,
         child: Container(
-          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
+          constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.78),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             color: kPrimaryColor,
@@ -458,12 +482,15 @@ class _AssistantChatPageState extends State<AssistantChatPage> {
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: const Color(0xFFDBEAFE)),
                 ),
-                child: const Icon(Icons.auto_awesome_rounded, size: 16, color: kPrimaryColor),
+                child: const Icon(Icons.auto_awesome_rounded,
+                    size: 16, color: kPrimaryColor),
               ),
               Expanded(
                 child: Container(
-                  constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  constraints: BoxConstraints(
+                      maxWidth: MediaQuery.of(context).size.width * 0.8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: const BorderRadius.only(
@@ -496,7 +523,8 @@ class _AssistantChatPageState extends State<AssistantChatPage> {
                         const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.bolt_rounded, size: 13, color: Color(0xFF10B981)),
+                            Icon(Icons.bolt_rounded,
+                                size: 13, color: Color(0xFF10B981)),
                             SizedBox(width: 3),
                             Text(
                               'Didukung AI Intent Understanding',
@@ -571,10 +599,12 @@ class _AssistantChatPageState extends State<AssistantChatPage> {
                   CachedNetworkImage(
                     imageUrl: _normalizeImageUrl(rec.imageUrl),
                     fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(color: const Color(0xFFE2E8F0)),
+                    placeholder: (_, __) =>
+                        Container(color: const Color(0xFFE2E8F0)),
                     errorWidget: (context, url, error) => Container(
                       color: const Color(0xFFE2E8F0),
-                      child: const Icon(Icons.image_not_supported_outlined, color: Color(0xFF94A3B8)),
+                      child: const Icon(Icons.image_not_supported_outlined,
+                          color: Color(0xFF94A3B8)),
                     ),
                   ),
                   // Badge Kategori & Tipe
@@ -582,9 +612,12 @@ class _AssistantChatPageState extends State<AssistantChatPage> {
                     top: 6,
                     left: 6,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: rec.isDonation ? const Color(0xFF2972FF) : const Color(0xFF0D9488),
+                        color: rec.isDonation
+                            ? const Color(0xFF2972FF)
+                            : const Color(0xFF0D9488),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -642,19 +675,22 @@ class _AssistantChatPageState extends State<AssistantChatPage> {
                       ),
                       Text(
                         rec.category,
-                        style: const TextStyle(fontSize: 10, color: kTextSecondary),
+                        style: const TextStyle(
+                            fontSize: 10, color: kTextSecondary),
                       ),
                     ],
                   ),
                 ] else ...[
                   Row(
                     children: [
-                      const Icon(Icons.location_on_outlined, size: 12, color: Color(0xFF0D9488)),
+                      const Icon(Icons.location_on_outlined,
+                          size: 12, color: Color(0xFF0D9488)),
                       const SizedBox(width: 3),
                       Expanded(
                         child: Text(
                           rec.location ?? 'Indonesia',
-                          style: const TextStyle(fontSize: 10.5, color: kTextSecondary),
+                          style: const TextStyle(
+                              fontSize: 10.5, color: kTextSecondary),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -682,11 +718,13 @@ class _AssistantChatPageState extends State<AssistantChatPage> {
                       foregroundColor: kPrimaryColor,
                       elevation: 0,
                       padding: EdgeInsets.zero,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
                     ),
                     child: const Text(
                       'Buka Detail',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                      style:
+                          TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
                     ),
                   ),
                 ),

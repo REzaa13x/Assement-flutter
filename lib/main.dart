@@ -32,7 +32,6 @@ import 'pages/reviews_page.dart'; // Halaman Ulasan dan Rating
 import 'pages/login_page.dart'; // Import login page
 import 'pages/register_page.dart'; // Import register page
 import 'pages/splash_page.dart'; // Import splash page
-import 'services/auth_service.dart'; // Import auth service
 import 'services/notification_service.dart'; // Import layanan notifikasi (FCM)
 import 'widgets/web_api_test.dart'; // Import web API test widget
 import 'widgets/connection_debug.dart'; // Import connection debug widget
@@ -49,38 +48,8 @@ void main() async {
   runApp(const MyApp());
 }
 
-class MyApp extends StatefulWidget {
+class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
-
-  @override
-  State<MyApp> createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
-  String _initialRoute = '/splash'; // Default route
-
-  @override
-  void initState() {
-    super.initState();
-    _checkLoginStatus();
-  }
-
-  Future<void> _checkLoginStatus() async {
-    await Future.delayed(const Duration(seconds: 1)); // Memberikan sedikit delay untuk inisialisasi
-    bool isLoggedIn = await AuthService.isLoggedIn();
-
-    String route = isLoggedIn ? '/' : '/login';
-
-    if (mounted) {
-      setState(() {
-        _initialRoute = route;
-      });
-
-      // Aplikasi sudah siap -> notifikasi yang dibuka dari luar aplikasi
-      // boleh melakukan navigasi
-      NotificationService.markAppReady();
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -93,15 +62,25 @@ class _MyAppState extends State<MyApp> {
         primaryColor: const Color(0xFF2972FF),
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      initialRoute: _initialRoute,
+      initialRoute: '/splash',
+      // Build only the splash at startup; Flutter otherwise also builds '/'
+      // underneath '/splash', starting dashboard requests before login.
+      onGenerateInitialRoutes: (_) => [
+        MaterialPageRoute<void>(
+          settings: const RouteSettings(name: '/splash'),
+          builder: (_) => const SplashPage(),
+        ),
+      ],
       routes: {
         '/splash': (context) => const SplashPage(),
         '/': (context) => const HomePage(),
         '/list_campaign': (context) => const ListCampaignPage(),
-        '/api_campaigns': (context) => const CampaignPage(), // New route for API-based campaigns
+        '/api_campaigns': (context) =>
+            const CampaignPage(), // New route for API-based campaigns
         '/api_test': (context) => const WebApiTestScreen(), // API test route
         '/debug': (context) => const ConnectionDebugScreen(), // Debug route
-        '/manual_test': (context) => const ManualApiTest(), // Manual API test route
+        '/manual_test': (context) =>
+            const ManualApiTest(), // Manual API test route
         '/login': (context) => const LoginPage(), // Login route
         '/register': (context) => const RegisterPage(), // Register route
 
@@ -109,7 +88,8 @@ class _MyAppState extends State<MyApp> {
         '/campaign_detail': (context) {
           // Ganti 'Campaign?' menjadi 'DonationCampaign'
           // Kita memaksa args dibaca sebagai DonationCampaign karena dikirim dari Home
-          final campaign = ModalRoute.of(context)!.settings.arguments as DonationCampaign;
+          final campaign =
+              ModalRoute.of(context)!.settings.arguments as DonationCampaign;
           return CampaignDetailPage(campaign: campaign);
         },
         // ----------------------------------
@@ -121,10 +101,12 @@ class _MyAppState extends State<MyApp> {
         '/volunteer': (context) => const VolunteerPage(),
         '/volunteer_campaigns': (context) => const VolunteerCampaignListPage(),
         '/volunteer_campaign_detail': (context) {
-          final campaign = ModalRoute.of(context)?.settings.arguments as VolunteerCampaign?;
+          final campaign =
+              ModalRoute.of(context)?.settings.arguments as VolunteerCampaign?;
           return VolunteerCampaignDetailPage(campaign: campaign);
         },
-        '/volunteer_registration': (context) => const VolunteerRegistrationFormPage(),
+        '/volunteer_registration': (context) =>
+            const VolunteerRegistrationFormPage(),
         '/start_campaign': (context) => const StartCampaignPage(),
         '/profile': (context) => const ProfilePage(),
         '/edit_profile': (context) => const EditProfilePage(),
@@ -133,7 +115,8 @@ class _MyAppState extends State<MyApp> {
         '/volunteer_history': (context) => const VolunteerHistoryPage(),
         '/my_certificates': (context) => const MyCertificatesPage(),
         '/certificate_detail': (context) {
-          final cert = ModalRoute.of(context)?.settings.arguments as VolunteerCertificate?;
+          final cert = ModalRoute.of(context)?.settings.arguments
+              as VolunteerCertificate?;
           return CertificateDetailPage(certificate: cert);
         },
         '/notifications': (context) => const NotificationsPage(),
@@ -146,10 +129,13 @@ class _MyAppState extends State<MyApp> {
           return DonationTransactionDetailPage(orderId: orderId);
         },
         '/reviews': (context) {
-          final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+          final args = ModalRoute.of(context)?.settings.arguments
+              as Map<String, dynamic>?;
           return ReviewsPage(
             initialActivityType: args?['activity_type']?.toString(),
-            initialActivityId: args?['activity_id'] != null ? int.tryParse(args!['activity_id'].toString()) : null,
+            initialActivityId: args?['activity_id'] != null
+                ? int.tryParse(args!['activity_id'].toString())
+                : null,
             initialCampaignTitle: args?['campaign_title']?.toString(),
           );
         },

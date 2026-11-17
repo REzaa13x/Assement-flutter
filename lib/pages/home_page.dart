@@ -363,7 +363,7 @@ class _HomeContentModernState extends State<HomeContentModern> {
 
     try {
       // 1. Fetch donation campaigns
-      final campaignResponse = await CampaignRepository.getCampaigns(page: 1, status: 'Active');
+      final campaignResponse = await CampaignRepository.getCampaigns(page: 1, status: 'verified');
       final mappedCampaigns = campaignResponse.data.map((c) {
         return DonationCampaign(
           id: c.id ?? 0,
@@ -732,8 +732,8 @@ class _HomeContentModernState extends State<HomeContentModern> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Logo & Sapaan
-              Row(
+              // Keep the greeting within the space beside the notification bell.
+              Expanded(child: Row(
                 children: [
                   Container(
                     width: 44,
@@ -762,7 +762,7 @@ class _HomeContentModernState extends State<HomeContentModern> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Column(
+                  Expanded(child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Row(
@@ -789,6 +789,8 @@ class _HomeContentModernState extends State<HomeContentModern> {
                       ),
                       Text(
                         greeting,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -796,9 +798,10 @@ class _HomeContentModernState extends State<HomeContentModern> {
                         ),
                       ),
                     ],
-                  ),
+                  )),
                 ],
-              ),
+              )),
+              const SizedBox(width: 12),
 
               // Notification Bell with Badge
               InkWell(
@@ -965,14 +968,16 @@ class _HomeContentModernState extends State<HomeContentModern> {
                         color: _selectedActivityType == 0 ? kPrimaryColor : const Color(0xFF64748B),
                       ),
                       const SizedBox(width: 8),
-                      Text(
+                      Flexible(child: Text(
                         'Program Donasi',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 13.5,
                           fontWeight: _selectedActivityType == 0 ? FontWeight.w700 : FontWeight.w500,
                           color: _selectedActivityType == 0 ? kPrimaryColor : const Color(0xFF64748B),
                         ),
-                      ),
+                      )),
                     ],
                   ),
                 ),
@@ -1016,14 +1021,16 @@ class _HomeContentModernState extends State<HomeContentModern> {
                         color: _selectedActivityType == 1 ? kPrimaryColor : const Color(0xFF64748B),
                       ),
                       const SizedBox(width: 8),
-                      Text(
+                      Flexible(child: Text(
                         'Aksi Relawan',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 13.5,
                           fontWeight: _selectedActivityType == 1 ? FontWeight.w700 : FontWeight.w500,
                           color: _selectedActivityType == 1 ? kPrimaryColor : const Color(0xFF64748B),
                         ),
-                      ),
+                      )),
                     ],
                   ),
                 ),
@@ -1243,7 +1250,10 @@ class _HomeContentModernState extends State<HomeContentModern> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              Row(
+                              Expanded(child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Row(
                                 children: [
                                   Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1287,7 +1297,8 @@ class _HomeContentModernState extends State<HomeContentModern> {
                                     ],
                                   ),
                                 ],
-                              ),
+                              ))),
+                              const SizedBox(width: 8),
                               ElevatedButton(
                                 onPressed: () {
                                   Navigator.pushNamed(
@@ -2607,8 +2618,10 @@ class _HomeContentModernState extends State<HomeContentModern> {
             ),
           ),
           const SizedBox(height: 24),
-          // Chips skeleton
-          Row(
+          // Chips skeleton scrolls like the real category list on narrow screens.
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
             children: List.generate(
               3,
               (index) => Container(
@@ -2621,10 +2634,12 @@ class _HomeContentModernState extends State<HomeContentModern> {
                 ),
               ),
             ),
-          ),
+          )),
           const SizedBox(height: 24),
-          // Cards skeleton
-          Row(
+          // Cards skeleton uses the same horizontal layout as loaded campaigns.
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
             children: List.generate(
               2,
               (index) => Container(
@@ -2637,7 +2652,7 @@ class _HomeContentModernState extends State<HomeContentModern> {
                 ),
               ),
             ),
-          ),
+          )),
         ],
       ),
     );

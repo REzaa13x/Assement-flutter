@@ -24,7 +24,7 @@ void main() {
       (WidgetTester tester) async {
     await pumpLogin(tester);
 
-    expect(find.text('Masuk ke Akun'), findsOneWidget);
+    expect(find.text('Selamat Datang Kembali'), findsOneWidget);
     expect(find.text('Email'), findsOneWidget);
     expect(find.text('Password'), findsOneWidget);
     expect(find.text('Masuk'), findsOneWidget);
@@ -34,6 +34,7 @@ void main() {
       (WidgetTester tester) async {
     await pumpLogin(tester);
 
+    await tester.ensureVisible(find.text('Masuk'));
     await tester.tap(find.text('Masuk'));
     await tester.pump();
 
@@ -41,13 +42,15 @@ void main() {
     expect(find.text('Password wajib diisi'), findsOneWidget);
   });
 
-  testWidgets('password pendek tetap diterima form login (validasi >=8 hanya di register)',
+  testWidgets(
+      'password pendek tetap diterima form login (validasi >=8 hanya di register)',
       (WidgetTester tester) async {
     await pumpLogin(tester);
 
     await tester.enterText(find.byType(TextFormField).at(0), 'user@mail.com');
     await tester.enterText(find.byType(TextFormField).at(1), 'abc');
-    await tester.tap(find.text('Masuk'));
+    // Check the form locally; no real API request is needed for validation.
+    expect(tester.state<FormState>(find.byType(Form)).validate(), isTrue);
     await tester.pump();
 
     // Tidak boleh ada pesan "Password minimal 8 karakter" di halaman login

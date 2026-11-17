@@ -1,5 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
+import '../services/notification_service.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({Key? key}) : super(key: key);
@@ -9,28 +10,31 @@ class SplashPage extends StatefulWidget {
 }
 
 class _SplashPageState extends State<SplashPage> {
+  Timer? _navigationTimer;
+
   @override
   void initState() {
     super.initState();
-    _navigateToHome();
+    _navigationTimer = Timer(const Duration(seconds: 2), _navigateToLogin);
   }
 
-  Future<void> _navigateToHome() async {
-    await Future.delayed(const Duration(seconds: 2)); // Tambahkan delay untuk splash
-    
-    bool isLoggedIn = await AuthService.isLoggedIn();
-    
-    String route = isLoggedIn ? '/' : '/login';
-    
-    if (mounted) {
-      Navigator.of(context).pushReplacementNamed(route);
-    }
+  void _navigateToLogin() {
+    if (!mounted) return;
+    // A saved token must not skip the login screen when the app is opened.
+    Navigator.of(context).pushNamedAndRemoveUntil('/login', (_) => false);
+    NotificationService.markAppReady();
+  }
+
+  @override
+  void dispose() {
+    _navigationTimer?.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF2972FF),
+    return const Scaffold(
+      backgroundColor: Color(0xFF2972FF),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -40,8 +44,8 @@ class _SplashPageState extends State<SplashPage> {
               size: 100,
               color: Colors.white,
             ),
-            const SizedBox(height: 20),
-            const Text(
+            SizedBox(height: 20),
+            Text(
               'DonGiv',
               style: TextStyle(
                 fontSize: 32,
@@ -49,16 +53,16 @@ class _SplashPageState extends State<SplashPage> {
                 color: Colors.white,
               ),
             ),
-            const SizedBox(height: 8),
-            const Text(
+            SizedBox(height: 8),
+            Text(
               'Aplikasi Donasi & Relawan',
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.white70,
               ),
             ),
-            const SizedBox(height: 40),
-            const CircularProgressIndicator(
+            SizedBox(height: 40),
+            CircularProgressIndicator(
               valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
             ),
           ],
